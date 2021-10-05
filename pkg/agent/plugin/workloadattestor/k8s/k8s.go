@@ -19,8 +19,10 @@ import (
 	"time"
 
 	"github.com/andres-erbsen/clock"
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/hcl"
+	"github.com/sigstore/cosign/pkg/cosign"
 	workloadattestorv1 "github.com/spiffe/spire-plugin-sdk/proto/spire/plugin/agent/workloadattestor/v1"
 	configv1 "github.com/spiffe/spire-plugin-sdk/proto/spire/service/common/config/v1"
 	"github.com/spiffe/spire/pkg/agent/common/cgroups"
@@ -214,6 +216,44 @@ func (p *Plugin) Attest(ctx context.Context, req *workloadattestorv1.AttestReque
 			return nil, status.Errorf(codes.Canceled, "no selectors found: %v", ctx.Err())
 		}
 	}
+}
+
+func (p *Plugin) DevAttest2(ctx context.Context, req *workloadattestorv1.AttestRequest) (*workloadattestorv1.AttestResponse, error) {
+	containerID, err := p.getContainerIDFromCGroups(req.Pid)
+	if err != nil {
+		return nil, err
+	}
+
+	config, err := p.getConfig()
+	podList, err := config.Client.GetPodList()
+	if err != nil {
+		return nil, err
+	}
+
+	image := ""
+	for _, pod := range podList.Items {
+		status, lookup := lookUpContainerInPod(containerID, pod.Status)
+		if lookup == containerInPod {
+			image = status.Image
+		}
+	}
+
+	/// TODO: check if it is correct
+	ref, err := name.ParseReference(image)
+	if err != nil {
+		return nil, err
+	}
+
+	/// TODO: build check options
+	co := &cosign.CheckOpts{}
+
+	_, err = cosign.Verify(ctx, ref, co)
+
+	if err != nil {
+		return p.Attest(ctx, req)
+	}
+
+	return nil, err
 }
 
 func (p *Plugin) Configure(ctx context.Context, req *configv1.ConfigureRequest) (resp *configv1.ConfigureResponse, err error) {
