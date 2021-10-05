@@ -238,13 +238,13 @@ func (p *Plugin) DevAttest2(ctx context.Context, req *workloadattestorv1.AttestR
 		}
 	}
 
-	/// TODO: check if it is correct
+	// TODO: check if it is correct
 	ref, err := name.ParseReference(image)
 	if err != nil {
 		return nil, err
 	}
 
-	/// TODO: build check options
+	// TODO: build check options
 	co := &cosign.CheckOpts{}
 
 	_, err = cosign.Verify(ctx, ref, co)
