@@ -225,6 +225,10 @@ func (p *Plugin) DevAttest2(ctx context.Context, req *workloadattestorv1.AttestR
 	}
 
 	config, err := p.getConfig()
+	if err != nil {
+		return nil, err
+	}
+
 	podList, err := config.Client.GetPodList()
 	if err != nil {
 		return nil, err
