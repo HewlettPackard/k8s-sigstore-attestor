@@ -19,8 +19,10 @@ import (
 	"time"
 
 	"github.com/andres-erbsen/clock"
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/hcl"
+	"github.com/sigstore/cosign/pkg/cosign"
 	workloadattestorv1 "github.com/spiffe/spire-plugin-sdk/proto/spire/plugin/agent/workloadattestor/v1"
 	configv1 "github.com/spiffe/spire-plugin-sdk/proto/spire/service/common/config/v1"
 	"github.com/spiffe/spire/pkg/agent/common/cgroups"
@@ -192,6 +194,7 @@ func (p *Plugin) Attest(ctx context.Context, req *workloadattestorv1.AttestReque
 			status, lookup := lookUpContainerInPod(containerID, item.Status)
 			switch lookup {
 			case containerInPod:
+				verifySelectorImage(ctx, status.Image)
 				return &workloadattestorv1.AttestResponse{
 					SelectorValues: getSelectorValuesFromPodInfo(&item, status),
 				}, nil
@@ -692,4 +695,21 @@ func newCertPool(certs []*x509.Certificate) *x509.CertPool {
 		certPool.AddCert(cert)
 	}
 	return certPool
+}
+
+func verifySelectorImage(ctx context.Context, image string) {
+	ref, err := name.ParseReference(image)
+
+	if err != nil {
+		fmt.Println("err: ", err)
+	}
+	fmt.Println("Image: ", ref)
+
+	co := &cosign.CheckOpts{}
+
+	_, err = cosign.Verify(ctx, ref, co)
+
+	if err != nil {
+		fmt.Println("err: ", err)
+	}
 }
