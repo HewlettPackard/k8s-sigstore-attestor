@@ -22,7 +22,10 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/hcl"
+	"github.com/sigstore/cosign/cmd/cosign/cli"
+	"github.com/sigstore/cosign/cmd/cosign/cli/fulcio"
 	"github.com/sigstore/cosign/pkg/cosign"
+	"github.com/sigstore/sigstore/pkg/signature/payload"
 	workloadattestorv1 "github.com/spiffe/spire-plugin-sdk/proto/spire/plugin/agent/workloadattestor/v1"
 	configv1 "github.com/spiffe/spire-plugin-sdk/proto/spire/service/common/config/v1"
 	"github.com/spiffe/spire/pkg/agent/common/cgroups"
@@ -194,7 +197,6 @@ func (p *Plugin) Attest(ctx context.Context, req *workloadattestorv1.AttestReque
 			status, lookup := lookUpContainerInPod(containerID, item.Status)
 			switch lookup {
 			case containerInPod:
-				verifySelectorImage(ctx, status.Image)
 				return &workloadattestorv1.AttestResponse{
 					SelectorValues: getSelectorValuesFromPodInfo(&item, status),
 				}, nil
@@ -650,6 +652,7 @@ func getSelectorValuesFromPodInfo(pod *corev1.Pod, status *corev1.ContainerStatu
 	podImageIdentifiers := getPodImageIdentifiers(pod.Status.ContainerStatuses)
 	podInitImageIdentifiers := getPodImageIdentifiers(pod.Status.InitContainerStatuses)
 	containerImageIdentifiers := getPodImageIdentifiers([]corev1.ContainerStatus{*status})
+	selectorOfSignedImage := getselectorOfSignedImage(status.Image)
 
 	selectorValues := []string{
 		fmt.Sprintf("sa:%s", pod.Spec.ServiceAccountName),
@@ -680,6 +683,8 @@ func getSelectorValuesFromPodInfo(pod *corev1.Pod, status *corev1.ContainerStatu
 		selectorValues = append(selectorValues, fmt.Sprintf("pod-owner-uid:%s:%s", ownerReference.Kind, ownerReference.UID))
 	}
 
+	selectorValues = append(selectorValues, fmt.Sprintf("subject:%s", selectorOfSignedImage))
+
 	return selectorValues
 }
 
@@ -697,19 +702,96 @@ func newCertPool(certs []*x509.Certificate) *x509.CertPool {
 	return certPool
 }
 
-func verifySelectorImage(ctx context.Context, image string) {
-	ref, err := name.ParseReference(image)
-
+func getselectorOfSignedImage(imageName string) string {
+	ref, err := name.ParseReference(imageName)
 	if err != nil {
-		fmt.Println("err: ", err)
+		fmt.Println("Erro no parseReference", err)
 	}
-	fmt.Println("Image: ", ref)
 
+	ctx := context.Background()
 	co := &cosign.CheckOpts{}
+	co.RekorURL = "https://rekor.sigstore.dev"
+	co.RootCerts = fulcio.GetRoots()
 
-	_, err = cosign.Verify(ctx, ref, co)
-
+	sigRepo, err := cli.TargetRepositoryForImage(ref)
 	if err != nil {
-		fmt.Println("err: ", err)
+		fmt.Println("Erro no targetRepository", err)
 	}
+	co.SignatureRepo = sigRepo
+
+	verified, err := cosign.Verify(ctx, ref, co)
+	if err != nil {
+		fmt.Println("Erro no verify", err)
+	}
+
+	// verify which subject
+	selector := getSubjectImage(verified)
+
+	// return subject as selector
+	fmt.Println("My Selector is ", selector)
+	return selector
+}
+
+type Subject struct {
+	Subject string
+}
+
+type Optional struct {
+	Optional Subject
+}
+
+func getOnlySubject(selectors string) string {
+	var selector []Optional
+	json.Unmarshal([]byte(selectors), &selector)
+
+	re, err := regexp.Compile(`[{}]`)
+	if err != nil {
+		fmt.Println("Regexp Err", err)
+	}
+
+	subject := fmt.Sprintf("%s", selector[0])
+	subject = re.ReplaceAllString(subject, "")
+
+	return subject
+}
+
+func getSubjectImage(verified []cosign.SignedPayload) string {
+	var outputKeys []payload.SimpleContainerImage
+	for _, vp := range verified {
+		ss := payload.SimpleContainerImage{}
+
+		err := json.Unmarshal(vp.Payload, &ss)
+		if err != nil {
+			fmt.Println("error decoding the payload:", err.Error())
+			return ""
+		}
+
+		if vp.Cert != nil {
+			if ss.Optional == nil {
+				ss.Optional = make(map[string]interface{})
+			}
+			ss.Optional["Subject"] = certSubject(vp.Cert)
+		}
+
+		outputKeys = append(outputKeys, ss)
+	}
+	b, err := json.Marshal(outputKeys)
+	if err != nil {
+		fmt.Println("error when generating the output:", err.Error())
+		return ""
+	}
+
+	subject := getOnlySubject(string(b))
+
+	return subject
+}
+
+func certSubject(c *x509.Certificate) string {
+	switch {
+	case c.EmailAddresses != nil:
+		return c.EmailAddresses[0]
+	case c.URIs != nil:
+		return c.URIs[0].String()
+	}
+	return ""
 }
