@@ -749,10 +749,7 @@ func getOnlySubject(selectors string) string {
 	var selector []Optional
 	json.Unmarshal([]byte(selectors), &selector)
 
-	re, err := regexp.Compile(`[{}]`)
-	if err != nil {
-		fmt.Println("Regexp Err", err)
-	}
+	re := regexp.MustCompile(`[{}]`)
 
 	subject := fmt.Sprintf("%s", selector[0])
 	subject = re.ReplaceAllString(subject, "")
