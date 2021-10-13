@@ -667,6 +667,7 @@ func getSelectorValuesFromPodInfo(pod *corev1.Pod, status *corev1.ContainerStatu
 		fmt.Sprintf("container-name:%s", status.Name),
 		fmt.Sprintf("pod-image-count:%s", strconv.Itoa(len(pod.Status.ContainerStatuses))),
 		fmt.Sprintf("pod-init-image-count:%s", strconv.Itoa(len(pod.Status.InitContainerStatuses))),
+		fmt.Sprintf("subject:%s", selectorOfSignedImage),
 	}
 
 	for containerImage := range containerImageIdentifiers {
@@ -686,8 +687,6 @@ func getSelectorValuesFromPodInfo(pod *corev1.Pod, status *corev1.ContainerStatu
 		selectorValues = append(selectorValues, fmt.Sprintf("pod-owner:%s:%s", ownerReference.Kind, ownerReference.Name))
 		selectorValues = append(selectorValues, fmt.Sprintf("pod-owner-uid:%s:%s", ownerReference.Kind, ownerReference.UID))
 	}
-
-	selectorValues = append(selectorValues, fmt.Sprintf("subject:%s", selectorOfSignedImage))
 
 	return selectorValues
 }
