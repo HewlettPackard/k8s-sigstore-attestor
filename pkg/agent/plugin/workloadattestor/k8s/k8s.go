@@ -120,7 +120,7 @@ type HCLConfig struct {
 	// from the disk.
 	ReloadInterval string `hcl:"reload_interval"`
 
-	RekorUrl string `hcl:"rekor_url"`
+	RekorURL string `hcl:"rekor_url"`
 }
 
 // k8sConfig holds the configuration distilled from HCL
@@ -136,7 +136,7 @@ type k8sConfig struct {
 	KubeletCAPath           string
 	NodeName                string
 	ReloadInterval          time.Duration
-	RekorUrl                string
+	RekorURL                string
 
 	Client     *kubeletClient
 	LastReload time.Time
@@ -295,7 +295,7 @@ func (p *Plugin) Configure(ctx context.Context, req *configv1.ConfigureRequest) 
 		KubeletCAPath:           config.KubeletCAPath,
 		NodeName:                nodeName,
 		ReloadInterval:          reloadInterval,
-		RekorUrl:                config.RekorUrl,
+		RekorURL:                config.RekorURL,
 	}
 	if err := p.reloadKubeletClient(c); err != nil {
 		return nil, err
@@ -715,7 +715,7 @@ func getselectorOfSignedImage(imageName string) string {
 
 	ctx := context.Background()
 	co := &cosign.CheckOpts{}
-	co.RekorURL = config.RekorUrl
+	co.RekorURL = config.RekorURL
 	co.RootCerts = fulcio.GetRoots()
 
 	sigRepo, err := cli.TargetRepositoryForImage(ref)
