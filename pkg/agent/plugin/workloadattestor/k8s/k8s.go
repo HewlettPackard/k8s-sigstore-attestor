@@ -747,7 +747,12 @@ type Optional struct {
 
 func getOnlySubject(selectors string) string {
 	var selector []Optional
-	json.Unmarshal([]byte(selectors), &selector)
+	err := json.Unmarshal([]byte(selectors), &selector)
+
+	if err != nil {
+		fmt.Println("error decoding the payload:", err.Error())
+		return ""
+	}
 
 	re := regexp.MustCompile(`[{}]`)
 
