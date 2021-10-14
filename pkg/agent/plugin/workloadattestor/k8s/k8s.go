@@ -656,7 +656,7 @@ func getSelectorValuesFromPodInfo(pod *corev1.Pod, status *corev1.ContainerStatu
 	podImageIdentifiers := getPodImageIdentifiers(pod.Status.ContainerStatuses)
 	podInitImageIdentifiers := getPodImageIdentifiers(pod.Status.InitContainerStatuses)
 	containerImageIdentifiers := getPodImageIdentifiers([]corev1.ContainerStatus{*status})
-	selectorOfSignedImage := getselectorOfSignedImage(status.Image)
+	selectorOfSignedImage, err := getselectorOfSignedImage(status.Image)
 
 	selectorValues := []string{
 		fmt.Sprintf("sa:%s", pod.Spec.ServiceAccountName),
@@ -667,7 +667,6 @@ func getSelectorValuesFromPodInfo(pod *corev1.Pod, status *corev1.ContainerStatu
 		fmt.Sprintf("container-name:%s", status.Name),
 		fmt.Sprintf("pod-image-count:%s", strconv.Itoa(len(pod.Status.ContainerStatuses))),
 		fmt.Sprintf("pod-init-image-count:%s", strconv.Itoa(len(pod.Status.InitContainerStatuses))),
-		fmt.Sprintf("subject:%s", selectorOfSignedImage),
 	}
 
 	for containerImage := range containerImageIdentifiers {
@@ -688,6 +687,10 @@ func getSelectorValuesFromPodInfo(pod *corev1.Pod, status *corev1.ContainerStatu
 		selectorValues = append(selectorValues, fmt.Sprintf("pod-owner-uid:%s:%s", ownerReference.Kind, ownerReference.UID))
 	}
 
+	if selectorOfSignedImage != "" || err == nil {
+		selectorValues = append(selectorValues, fmt.Sprintf("subject:%s", selectorOfSignedImage))
+	}
+
 	return selectorValues
 }
 
@@ -705,11 +708,12 @@ func newCertPool(certs []*x509.Certificate) *x509.CertPool {
 	return certPool
 }
 
-func getselectorOfSignedImage(imageName string) string {
+func getselectorOfSignedImage(imageName string) (string, error) {
 	config := new(HCLConfig)
 	ref, err := name.ParseReference(imageName)
 	if err != nil {
-		fmt.Println("Erro no parseReference", err)
+		messageError := fmt.Sprintf("Parses the string as a reference return error: %v", err)
+		return messageError, err
 	}
 
 	ctx := context.Background()
@@ -719,21 +723,27 @@ func getselectorOfSignedImage(imageName string) string {
 
 	sigRepo, err := cli.TargetRepositoryForImage(ref)
 	if err != nil {
-		fmt.Println("Erro no targetRepository", err)
+		messageError := fmt.Sprintf("TargetRepositoryForImage returned error: %v", err)
+		return messageError, err
 	}
 	co.SignatureRepo = sigRepo
 
 	verified, err := cosign.Verify(ctx, ref, co)
 	if err != nil {
-		fmt.Println("Erro no verify", err)
+		messageError := fmt.Sprintf("Error verifying signature: %v", err)
+		return messageError, err
 	}
 
 	// verify which subject
 	selector := getSubjectImage(verified)
+	if selector == "" {
+		fmt.Println("Selector returned empty")
+	}
 
 	// return subject as selector
+	//TODO: For test
 	fmt.Println("My Selector is ", selector)
-	return selector
+	return selector, nil
 }
 
 type Subject struct {
