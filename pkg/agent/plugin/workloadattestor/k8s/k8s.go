@@ -120,6 +120,7 @@ type HCLConfig struct {
 	// from the disk.
 	ReloadInterval string `hcl:"reload_interval"`
 
+	// RekorURL is the URL for the rekor server to use to verify signatures and public keys
 	RekorURL string `hcl:"rekor_url"`
 }
 
