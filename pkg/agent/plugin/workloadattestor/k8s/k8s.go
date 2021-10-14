@@ -199,10 +199,11 @@ func (p *Plugin) Attest(ctx context.Context, req *workloadattestorv1.AttestReque
 		for _, item := range list.Items {
 			item := item
 			status, lookup := lookUpContainerInPod(containerID, item.Status)
+			containerPayload:= //busca payload no cosign
 			switch lookup {
 			case containerInPod:
 				return &workloadattestorv1.AttestResponse{
-					SelectorValues: getSelectorValuesFromPodInfo(&item, status),
+					SelectorValues: getSelectorValuesFromPodInfo(&item, status, containerPayload),
 				}, nil
 			case containerNotInPod:
 			}
@@ -742,6 +743,7 @@ func getselectorOfSignedImage(imageName string) (string, error) {
 	}
 
 	// return subject as selector
+	log.Println("Image signature selector is ", selector)
 	return selector, nil
 }
 
