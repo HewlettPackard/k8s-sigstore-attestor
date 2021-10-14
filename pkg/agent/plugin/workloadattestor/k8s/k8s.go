@@ -742,8 +742,6 @@ func getselectorOfSignedImage(imageName string) (string, error) {
 	}
 
 	// return subject as selector
-	//TODO: For test
-	fmt.Println("My Selector is ", selector)
 	return selector, nil
 }
 
