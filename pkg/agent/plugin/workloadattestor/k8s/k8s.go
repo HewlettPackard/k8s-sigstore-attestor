@@ -199,11 +199,10 @@ func (p *Plugin) Attest(ctx context.Context, req *workloadattestorv1.AttestReque
 		for _, item := range list.Items {
 			item := item
 			status, lookup := lookUpContainerInPod(containerID, item.Status)
-			containerPayload:= //busca payload no cosign
 			switch lookup {
 			case containerInPod:
 				return &workloadattestorv1.AttestResponse{
-					SelectorValues: getSelectorValuesFromPodInfo(&item, status, containerPayload),
+					SelectorValues: getSelectorValuesFromPodInfo(&item, status),
 				}, nil
 			case containerNotInPod:
 			}
@@ -660,6 +659,10 @@ func getSelectorValuesFromPodInfo(pod *corev1.Pod, status *corev1.ContainerStatu
 	containerImageIdentifiers := getPodImageIdentifiers([]corev1.ContainerStatus{*status})
 	selectorOfSignedImage, err := getselectorOfSignedImage(status.Image)
 
+	if err != nil {
+		log.Println("Error retrieving image signature: ", err.Error())
+	}
+
 	selectorValues := []string{
 		fmt.Sprintf("sa:%s", pod.Spec.ServiceAccountName),
 		fmt.Sprintf("ns:%s", pod.Namespace),
@@ -689,7 +692,7 @@ func getSelectorValuesFromPodInfo(pod *corev1.Pod, status *corev1.ContainerStatu
 		selectorValues = append(selectorValues, fmt.Sprintf("pod-owner-uid:%s:%s", ownerReference.Kind, ownerReference.UID))
 	}
 
-	if selectorOfSignedImage != "" || err == nil {
+	if selectorOfSignedImage != "" {
 		selectorValues = append(selectorValues, fmt.Sprintf("subject:%s", selectorOfSignedImage))
 	}
 
@@ -714,7 +717,7 @@ func getselectorOfSignedImage(imageName string) (string, error) {
 	config := new(HCLConfig)
 	ref, err := name.ParseReference(imageName)
 	if err != nil {
-		fmt.Println("Parses the string as a reference return error: ", err.Error())
+		log.Println("Parses the string as a reference return error: ", err.Error())
 		return "", err
 	}
 
@@ -725,21 +728,21 @@ func getselectorOfSignedImage(imageName string) (string, error) {
 
 	sigRepo, err := cli.TargetRepositoryForImage(ref)
 	if err != nil {
-		fmt.Println("TargetRepositoryForImage returned error: ", err.Error())
+		log.Println("TargetRepositoryForImage returned error: ", err.Error())
 		return "", err
 	}
 	co.SignatureRepo = sigRepo
 
 	verified, err := cosign.Verify(ctx, ref, co)
 	if err != nil {
-		fmt.Println("Error verifying signature: ", err.Error())
+		log.Println("Error verifying signature: ", err.Error())
 		return "", err
 	}
 
 	// verify which subject
 	selector := getSubjectImage(verified)
 	if selector == "" {
-		fmt.Println("Selector returned empty")
+		log.Println("Selector returned empty")
 	}
 
 	// return subject as selector
@@ -760,7 +763,7 @@ func getOnlySubject(selectors string) string {
 	err := json.Unmarshal([]byte(selectors), &selector)
 
 	if err != nil {
-		fmt.Println("error decoding the payload:", err.Error())
+		log.Println("Error decoding the payload:", err.Error())
 		return ""
 	}
 
@@ -794,7 +797,7 @@ func getSubjectImage(verified []cosign.SignedPayload) string {
 	}
 	b, err := json.Marshal(outputKeys)
 	if err != nil {
-		fmt.Println("error when generating the output:", err.Error())
+		log.Println("Error generating the output:", err.Error())
 		return ""
 	}
 
