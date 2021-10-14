@@ -712,8 +712,8 @@ func getselectorOfSignedImage(imageName string) (string, error) {
 	config := new(HCLConfig)
 	ref, err := name.ParseReference(imageName)
 	if err != nil {
-		messageError := fmt.Sprintf("Parses the string as a reference return error: %v", err)
-		return messageError, err
+		fmt.Println("Parses the string as a reference return error: ", err.Error())
+		return "", err
 	}
 
 	ctx := context.Background()
@@ -723,15 +723,15 @@ func getselectorOfSignedImage(imageName string) (string, error) {
 
 	sigRepo, err := cli.TargetRepositoryForImage(ref)
 	if err != nil {
-		messageError := fmt.Sprintf("TargetRepositoryForImage returned error: %v", err)
-		return messageError, err
+		fmt.Println("TargetRepositoryForImage returned error: ", err.Error())
+		return "", err
 	}
 	co.SignatureRepo = sigRepo
 
 	verified, err := cosign.Verify(ctx, ref, co)
 	if err != nil {
-		messageError := fmt.Sprintf("Error verifying signature: %v", err)
-		return messageError, err
+		fmt.Println("Error verifying signature: ", err.Error())
+		return "", err
 	}
 
 	// verify which subject
