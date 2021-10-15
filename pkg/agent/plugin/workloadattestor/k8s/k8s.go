@@ -751,10 +751,6 @@ func getselectorOfSignedImage(payload []cosign.SignedPayload) string {
 		// verify which subject
 		selector = getSubjectImage(payload)
 	}
-	if selector == "" {
-		log.Println("Selector returned empty")
-		return ""
-	}
 
 	// return subject as selector
 	return selector
