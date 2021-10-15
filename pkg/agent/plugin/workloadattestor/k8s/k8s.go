@@ -768,9 +768,9 @@ type Optional struct {
 	Optional Subject
 }
 
-func getOnlySubject(selectors string) string {
+func getOnlySubject(payload string) string {
 	var selector []Optional
-	err := json.Unmarshal([]byte(selectors), &selector)
+	err := json.Unmarshal([]byte(payload), &selector)
 
 	if err != nil {
 		log.Println("Error decoding the payload:", err.Error())
