@@ -693,7 +693,7 @@ func getSelectorValuesFromPodInfo(pod *corev1.Pod, status *corev1.ContainerStatu
 	}
 
 	if selectorOfSignedImage != "" {
-		selectorValues = append(selectorValues, fmt.Sprintf("subject:%s", selectorOfSignedImage))
+		selectorValues = append(selectorValues, fmt.Sprintf("image-signature-subject:%s", selectorOfSignedImage))
 	}
 
 	return selectorValues
