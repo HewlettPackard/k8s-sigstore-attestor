@@ -743,6 +743,7 @@ func getselectorOfSignedImage(imageName string) (string, error) {
 	selector := getSubjectImage(verified)
 	if selector == "" {
 		log.Println("Selector returned empty")
+		return "", nil
 	}
 
 	// return subject as selector
@@ -782,7 +783,7 @@ func getSubjectImage(verified []cosign.SignedPayload) string {
 
 		err := json.Unmarshal(vp.Payload, &ss)
 		if err != nil {
-			fmt.Println("error decoding the payload:", err.Error())
+			log.Println("Error decoding the payload:", err.Error())
 			return ""
 		}
 
