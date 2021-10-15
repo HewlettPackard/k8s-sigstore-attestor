@@ -201,8 +201,12 @@ func (p *Plugin) Attest(ctx context.Context, req *workloadattestorv1.AttestReque
 			status, lookup := lookUpContainerInPod(containerID, item.Status)
 			switch lookup {
 			case containerInPod:
+				signedPayload, err := getSignaturePayload(status.Image)
+				if err != nil {
+					log.Error("Error retrieving signature payload: ", err.Error())
+				}
 				return &workloadattestorv1.AttestResponse{
-					SelectorValues: getSelectorValuesFromPodInfo(&item, status),
+					SelectorValues: getSelectorValuesFromPodInfo(&item, status, signedPayload),
 				}, nil
 			case containerNotInPod:
 			}
@@ -653,15 +657,11 @@ func getPodImageIdentifiers(containerStatusArray []corev1.ContainerStatus) map[s
 	return podImages
 }
 
-func getSelectorValuesFromPodInfo(pod *corev1.Pod, status *corev1.ContainerStatus) []string {
+func getSelectorValuesFromPodInfo(pod *corev1.Pod, status *corev1.ContainerStatus, signedPayload []cosign.SignedPayload) []string {
 	podImageIdentifiers := getPodImageIdentifiers(pod.Status.ContainerStatuses)
 	podInitImageIdentifiers := getPodImageIdentifiers(pod.Status.InitContainerStatuses)
 	containerImageIdentifiers := getPodImageIdentifiers([]corev1.ContainerStatus{*status})
-	selectorOfSignedImage, err := getselectorOfSignedImage(status.Image)
-
-	if err != nil {
-		log.Println("Error retrieving image signature: ", err.Error())
-	}
+	selectorOfSignedImage := getselectorOfSignedImage(signedPayload)
 
 	selectorValues := []string{
 		fmt.Sprintf("sa:%s", pod.Spec.ServiceAccountName),
@@ -713,12 +713,12 @@ func newCertPool(certs []*x509.Certificate) *x509.CertPool {
 	return certPool
 }
 
-func getselectorOfSignedImage(imageName string) (string, error) {
+func getSignaturePayload(imageName string) ([]cosign.SignedPayload, error) {
 	config := new(HCLConfig)
 	ref, err := name.ParseReference(imageName)
 	if err != nil {
 		log.Println("Parses the string as a reference return error: ", err.Error())
-		return "", err
+		return nil, err
 	}
 
 	ctx := context.Background()
@@ -729,18 +729,28 @@ func getselectorOfSignedImage(imageName string) (string, error) {
 	sigRepo, err := cli.TargetRepositoryForImage(ref)
 	if err != nil {
 		log.Println("TargetRepositoryForImage returned error: ", err.Error())
-		return "", err
+		return nil, err
 	}
 	co.SignatureRepo = sigRepo
 
 	verified, err := cosign.Verify(ctx, ref, co)
+
 	if err != nil {
 		log.Println("Error verifying signature: ", err.Error())
-		return "", err
+		return nil, err
 	}
+	return verified, nil
+}
 
-	// verify which subject
-	selector := getSubjectImage(verified)
+func getselectorOfSignedImage(payload []cosign.SignedPayload) string {
+	var selector string
+	// Payload can be empty if the attestor fails to retrieve it
+	// In a non-strict mode this method should be reached and return
+	// an empty selector
+	if payload != nil {
+		// verify which subject
+		selector = getSubjectImage(payload)
+	}
 	if selector == "" {
 		log.Println("Selector returned empty")
 		return "", nil
@@ -748,7 +758,7 @@ func getselectorOfSignedImage(imageName string) (string, error) {
 
 	// return subject as selector
 	log.Println("Image signature selector is ", selector)
-	return selector, nil
+	return selector
 }
 
 type Subject struct {
