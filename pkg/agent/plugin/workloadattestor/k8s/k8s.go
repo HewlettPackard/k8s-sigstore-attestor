@@ -757,7 +757,6 @@ func getselectorOfSignedImage(payload []cosign.SignedPayload) string {
 	}
 
 	// return subject as selector
-	log.Println("Image signature selector is ", selector)
 	return selector
 }
 
