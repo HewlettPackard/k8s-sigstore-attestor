@@ -717,7 +717,7 @@ func getSignaturePayload(imageName string) ([]cosign.SignedPayload, error) {
 	config := new(HCLConfig)
 	ref, err := name.ParseReference(imageName)
 	if err != nil {
-		message := fmt.Sprint("Parses the string as a reference return error: ", err.Error())
+		message := fmt.Sprint("Error parsing the image reference: ", err.Error())
 		return nil, errors.New(message)
 	}
 
