@@ -717,8 +717,8 @@ func getSignaturePayload(imageName string) ([]cosign.SignedPayload, error) {
 	config := new(HCLConfig)
 	ref, err := name.ParseReference(imageName)
 	if err != nil {
-		log.Println("Parses the string as a reference return error: ", err.Error())
-		return nil, err
+		message := fmt.Sprint("Parses the string as a reference return error: ", err.Error())
+		return nil, errors.New(message)
 	}
 
 	ctx := context.Background()
@@ -728,16 +728,16 @@ func getSignaturePayload(imageName string) ([]cosign.SignedPayload, error) {
 
 	sigRepo, err := cli.TargetRepositoryForImage(ref)
 	if err != nil {
-		log.Println("TargetRepositoryForImage returned error: ", err.Error())
-		return nil, err
+		message := fmt.Sprint("TargetRepositoryForImage returned error: ", err.Error())
+		return nil, errors.New(message)
 	}
 	co.SignatureRepo = sigRepo
 
 	verified, err := cosign.Verify(ctx, ref, co)
 
 	if err != nil {
-		log.Println("Error verifying signature: ", err.Error())
-		return nil, err
+		message := fmt.Sprint("Error verifying signature: ", err.Error())
+		return nil, errors.New(message)
 	}
 	return verified, nil
 }
@@ -753,7 +753,7 @@ func getselectorOfSignedImage(payload []cosign.SignedPayload) string {
 	}
 	if selector == "" {
 		log.Println("Selector returned empty")
-		return "", nil
+		return ""
 	}
 
 	// return subject as selector
