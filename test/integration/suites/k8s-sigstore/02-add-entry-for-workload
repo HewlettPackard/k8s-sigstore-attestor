@@ -2,15 +2,20 @@
 
 source init-kubectl
 
+#1 - namespace
+#2 - app_name
+#3 workload spiffeID
 add_entry_for_workload() {
     ns=$1
-    SERVERPOD=$(./bin/kubectl -n${ns} get pod -l app=spire-server -o jsonpath="{.items[0].metadata.name}")
+    app_name=$2
+    workload_spiffe_id=$3
+    SERVER_POD=$(./bin/kubectl -n${ns} get pod -l app=spire-server -o jsonpath="{.items[0].metadata.name}")
     # AGENTSPIFFEID=$(./bin/kubectl -n${ns} exec ${SERVERPOD} -- /opt/spire/bin/spire-server agent list | grep "SPIFFE ID" | awk '{print $4}')
-    CLUSTER_NODE_SPIFFEID="spiffe://example.org/k8s-workload-registrar/example-cluster/node"
-    WORKLOAD_POD=$(./bin/kubectl -n${ns} get pod -l app=example-workload -o jsonpath="{.items[0].metadata.name}")
-    if ./bin/kubectl -n${ns} exec ${SERVERPOD} -- /opt/spire/bin/spire-server entry create \
-    -spiffeID spiffe://example.org/ns/default/sa/default \
-    -parentID ${CLUSTER_NODE_SPIFFEID} \
+    CLUSTERNODESPIFFEID="spiffe://example.org/k8s-workload-registrar/example-cluster/node"
+    WORKLOAD_POD=$(./bin/kubectl -n${ns} get pod -l app=${app_name} -o jsonpath="{.items[0].metadata.name}")
+    if ./bin/kubectl -n${ns} exec ${SERVER_POD} -- /opt/spire/bin/spire-server entry create \
+    -spiffeID ${workload_spiffe_id} \
+    -parentID ${CLUSTERNODESPIFFEID} \
     -selector k8s:image-signature-subject:mvtms@cesar.org.br \
     -selector k8s:ns:${ns} \
     -selector k8s:pod-name:${WORKLOAD_POD} ;then
@@ -19,4 +24,4 @@ add_entry_for_workload() {
     fail-now "Failed creating entry for workload "
 }
 
-add_entry_for_workload spire
+add_entry_for_workload spire example-workload-signed spiffe://example.org/ns/default/sa/default/workload-signed

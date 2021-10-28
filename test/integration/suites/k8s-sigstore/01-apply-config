@@ -31,4 +31,4 @@ wait-for-rollout spire daemonset/spire-agent
 # out, otherwise the k8s-workload-registrar might miss its chance to create
 # an entry for it
 ./bin/kubectl apply -f ./conf/workload.yaml
-wait-for-rollout spire deployment/example-workload
+wait-for-rollout spire deployment/example-workload-signed

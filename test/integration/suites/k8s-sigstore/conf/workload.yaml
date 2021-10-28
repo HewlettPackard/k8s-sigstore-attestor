@@ -1,26 +1,26 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: example-workload
+  name: example-workload-signed
   namespace: spire
   labels:
-    app: example-workload
+    app: example-workload-signed
 spec:
   selector:
     matchLabels:
-      app: example-workload
+      app: example-workload-signed
   template:
     metadata:
       namespace: spire
       labels:
-        app: example-workload
-        spire-workload: example-workload
+        app: example-workload-signed
+        spire-workload: example-workload-signed
     spec:
       hostPID: true
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       containers:
-        - name: example-workload
+        - name: example-workload-signed
           image: marcusvtms/spire-tests:tag-1
           imagePullPolicy: IfNotPresent
           command: ["/usr/bin/dumb-init", "/opt/spire/bin/spire-agent", "api", "watch"]

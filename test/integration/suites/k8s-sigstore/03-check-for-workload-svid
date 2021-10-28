@@ -1,21 +1,9 @@
 #!/bin/sh
 
 source init-kubectl
+source check_for_workload_svid
 
-MAXFETCHCHECKS=60
-FETCHCHECKINTERVAL=30
-TARGET_SPIFFEID="spiffe://example.org/ns/default/sa/default"
-for ((i=1; i<=${MAXFETCHCHECKS}; i++)); do
-    EXAMPLEPOD=$(./bin/kubectl -nspire get pod -l app=example-workload -o jsonpath="{.items[0].metadata.name}")
-    log-info "checking for workload SPIFFE ID ($i of $MAXFETCHCHECKS max)..."
-    if ./bin/kubectl -nspire exec -t "${EXAMPLEPOD}" -- \
-        /opt/spire/bin/spire-agent api fetch --timeout 10s\
-            | grep ${TARGET_SPIFFEID} ; then
-        DONE=1
-        break
-    fi
-    sleep "${FETCHCHECKINTERVAL}" 
-done
+check_for_workload_svid "spiffe://example.org/ns/default/sa/default/workload-signed" example-workload-signed
 
 if [ "${DONE}" -eq 1 ]; then
     log-info "SPIFFE ID found."
