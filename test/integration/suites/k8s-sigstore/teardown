@@ -6,6 +6,7 @@ if [ -z "$SUCCESS" ]; then
    ./bin/kubectl -nspire logs deployment/spire-server --all-containers || true
    ./bin/kubectl -nspire logs daemonset/spire-agent --all-containers || true
    ./bin/kubectl -nspire logs deployment/example-workload-signed --all-containers || true
+   ./bin/kubectl -nspire logs deployment/example-workload-unsigned --all-containers || true
 fi
 
 export KUBECONFIG=

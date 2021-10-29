@@ -25,3 +25,4 @@ add_entry_for_workload() {
 }
 
 add_entry_for_workload spire example-workload-signed spiffe://example.org/ns/default/sa/default/workload-signed
+add_entry_for_workload spire example-workload-unsigned spiffe://example.org/ns/spire/sa/default/workload-unsigned
