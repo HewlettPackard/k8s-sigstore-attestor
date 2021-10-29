@@ -34,3 +34,5 @@ wait-for-rollout spire daemonset/spire-agent
 wait-for-rollout spire deployment/example-workload-signed
 ./bin/kubectl apply -f ./conf/workload-unsigned.yaml
 wait-for-rollout spire deployment/example-workload-unsigned
+./bin/kubectl apply -f ./conf/workload-signed-wrong-subject.yaml
+wait-for-rollout spire deployment/example-workload-signed-wrong-subject
