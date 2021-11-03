@@ -21,8 +21,8 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       containers:
         - name: example-workload-signed-wrong-subject
-          image: spire-agent:latest-local
-          imagePullPolicy: Never
+          image: marcusvtms/spire-tests:signed_wrong_subject
+          imagePullPolicy: IfNotPresent
           command: ["/usr/bin/dumb-init", "/opt/spire/bin/spire-agent", "api", "watch"]
           args: ["-socketPath", "/tmp/spire-agent/public/api.sock"]
           volumeMounts:
