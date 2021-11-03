@@ -3,8 +3,8 @@
 #1 - target spiffe id
 #2 - app name
 check_for_workload_svid(){
-    MAXFETCHCHECKS=60
-    FETCHCHECKINTERVAL=2
+    MAXFETCHCHECKS=5
+    FETCHCHECKINTERVAL=5
     target_spiffeid=$1
     app_name=$2
 
