@@ -50,6 +50,8 @@ const (
 
 type containerLookup int
 
+var signatureImage string
+
 const (
 	containerInPod = iota
 	containerNotInPod
@@ -168,6 +170,10 @@ func (p *Plugin) SetLogger(log hclog.Logger) {
 	p.log = log
 }
 
+func GetSelector() string {
+	return signatureImage
+}
+
 func (p *Plugin) Attest(ctx context.Context, req *workloadattestorv1.AttestRequest) (*workloadattestorv1.AttestResponse, error) {
 	config, err := p.getConfig()
 	if err != nil {
@@ -201,7 +207,7 @@ func (p *Plugin) Attest(ctx context.Context, req *workloadattestorv1.AttestReque
 			status, lookup := lookUpContainerInPod(containerID, item.Status)
 			switch lookup {
 			case containerInPod:
-				signedPayload, err := getSignaturePayload(status.Image)
+				signedPayload, err := getSignaturePayload("willallves/sign-image")
 				if err != nil {
 					log.Error("Error retrieving signature payload: ", err.Error())
 				}
@@ -750,6 +756,7 @@ func getselectorOfSignedImage(payload []cosign.SignedPayload) string {
 	if payload != nil {
 		// verify which subject
 		selector = getSubjectImage(payload)
+		signatureImage = selector
 	}
 
 	// return subject as selector

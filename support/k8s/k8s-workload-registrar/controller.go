@@ -3,13 +3,19 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
+	"regexp"
 
+	"github.com/sigstore/cosign/pkg/cosign"
+	"github.com/sigstore/sigstore/pkg/signature/payload"
 	"github.com/sirupsen/logrus"
 	entryv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/entry/v1"
 	"github.com/spiffe/spire-api-sdk/proto/spire/api/types"
+	selector_k8s "github.com/spiffe/spire/pkg/agent/plugin/workloadattestor/k8s"
 	"github.com/spiffe/spire/pkg/common/idutil"
 	"github.com/spiffe/spire/support/k8s/k8s-workload-registrar/federation"
 	"github.com/zeebo/errs"
@@ -34,6 +40,67 @@ type Controller struct {
 	c ControllerConfig
 }
 
+/* var signedPayload []cosign.SignedPayload
+var err error */
+
+// HCLConfig holds the configuration parsed from HCL
+/* type HCLConfig struct {
+	// KubeletReadOnlyPort defines the read only port for the kubelet
+	// (typically 10255). This option is mutally exclusive with
+	// KubeletSecurePort.
+	KubeletReadOnlyPort int `hcl:"kubelet_read_only_port"`
+
+	// KubeletSecurePort defines the secure port for the kubelet (typically
+	// 10250). This option is mutually exclusive with KubeletReadOnlyPort.
+	KubeletSecurePort int `hcl:"kubelet_secure_port"`
+
+	// MaxPollAttempts is the maximum number of polling attempts for the
+	// container hosting the workload process.
+	MaxPollAttempts int `hcl:"max_poll_attempts"`
+
+	// PollRetryInterval is the time in between polling attempts.
+	PollRetryInterval string `hcl:"poll_retry_interval"`
+
+	// KubeletCAPath is the path to the CA certificate for authenticating the
+	// kubelet over the secure port. Required when using the secure port unless
+	// SkipKubeletVerification is set. Defaults to the cluster trust bundle.
+	KubeletCAPath string `hcl:"kubelet_ca_path"`
+
+	// SkipKubeletVerification controls whether or not the plugin will
+	// verify the certificate presented by the kubelet.
+	SkipKubeletVerification bool `hcl:"skip_kubelet_verification"`
+
+	// TokenPath is the path to the bearer token used to authenticate to the
+	// secure port. Defaults to the default service account token path unless
+	// PrivateKeyPath and CertificatePath are specified.
+	TokenPath string `hcl:"token_path"`
+
+	// CertificatePath is the path to a certificate key used for client
+	// authentication with the kubelet. Must be used with PrivateKeyPath.
+	CertificatePath string `hcl:"certificate_path"`
+
+	// PrivateKeyPath is the path to a private key used for client
+	// authentication with the kubelet. Must be used with CertificatePath.
+	PrivateKeyPath string `hcl:"private_key_path"`
+
+	// NodeNameEnv is the environment variable used to determine the node name
+	// for contacting the kubelet. It defaults to "MY_NODE_NAME". If the
+	// environment variable is not set, and NodeName is not specified, the
+	// plugin will default to localhost (which requires host networking).
+	NodeNameEnv string `hcl:"node_name_env"`
+
+	// NodeName is the node name used when contacting the kubelet. If set, it
+	// takes precedence over NodeNameEnv.
+	NodeName string `hcl:"node_name"`
+
+	// ReloadInterval controls how often TLS and token configuration is loaded
+	// from the disk.
+	ReloadInterval string `hcl:"reload_interval"`
+
+	// RekorURL is the URL for the rekor server to use to verify signatures and public keys
+	RekorURL string `hcl:"rekor_url"`
+} */
+
 func NewController(config ControllerConfig) *Controller {
 	return &Controller{
 		c: config,
@@ -41,6 +108,11 @@ func NewController(config ControllerConfig) *Controller {
 }
 
 func (c *Controller) Initialize(ctx context.Context) error {
+	//Todo: get Image Name???
+	//signedPayload, err = getSignaturePayload("cspiffe/spire-agent:signed")
+	/* if err != nil {
+		log.Println("Error retrieving signature payload: ", err.Error())
+	} */
 	// ensure there is a node registration entry for PSAT nodes in the cluster.
 	return c.createEntry(ctx, &types.Entry{
 		ParentId: c.makeID("%s", idutil.ServerIDPath),
@@ -132,6 +204,35 @@ func (c *Controller) podSpiffeID(pod *corev1.Pod) *types.SPIFFEID {
 	return c.makeID("/ns/%s/sa/%s", pod.Namespace, pod.Spec.ServiceAccountName)
 }
 
+/* func getSignaturePayload(image string) ([]cosign.SignedPayload, error) {
+	//config := new(HCLConfig)
+	ref, err := name.ParseReference(image)
+	if err != nil {
+		message := fmt.Sprint("Error parsing the image reference: ", err.Error())
+		return nil, errors.New(message)
+	}
+
+	ctx := context.Background()
+	co := &cosign.CheckOpts{}
+	co.RekorURL = config.RekorURL
+	co.RootCerts = fulcio.GetRoots()
+
+	sigRepo, err := cli.TargetRepositoryForImage(ref)
+	if err != nil {
+		message := fmt.Sprint("TargetRepositoryForImage returned error: ", err.Error())
+		return nil, errors.New(message)
+	}
+	co.SignatureRepo = sigRepo
+
+	verified, err := cosign.Verify(ctx, ref, co)
+
+	if err != nil {
+		message := fmt.Sprint("Error verifying signature: ", err.Error())
+		return nil, errors.New(message)
+	}
+	return verified, nil
+} */
+
 func (c *Controller) createPodEntry(ctx context.Context, pod *corev1.Pod) error {
 	spiffeID := c.podSpiffeID(pod)
 	// If we have no spiffe ID for the pod, do nothing
@@ -147,6 +248,7 @@ func (c *Controller) createPodEntry(ctx context.Context, pod *corev1.Pod) error 
 		Selectors: []*types.Selector{
 			namespaceSelector(pod.Namespace),
 			podNameSelector(pod.Name),
+			getselectorOfSignedImage(selector_k8s.GetSelector()),
 		},
 		FederatesWith: federationDomains,
 	})
@@ -282,4 +384,87 @@ func errorFromStatus(s *types.Status) error {
 		return errors.New("result status is unexpectedly nil")
 	}
 	return status.Error(codes.Code(s.Code), s.Message)
+}
+
+func getselectorOfSignedImage(selector string) *types.Selector {
+	/* var selector string
+	// Payload can be empty if the attestor fails to retrieve it
+	// In a non-strict mode this method should be reached and return
+	// an empty selector
+	if payload != nil {
+		// verify which subject
+		selector = getSubjectImage(payload)
+	} */
+
+	// return subject as selector
+	return &types.Selector{
+		Type:  "k8s",
+		Value: fmt.Sprintf("image-signature-subject:%s", selector),
+	}
+}
+
+type Subject struct {
+	Subject string
+}
+
+type Optional struct {
+	Optional Subject
+}
+
+func getOnlySubject(payload string) string {
+	var selector []Optional
+	err := json.Unmarshal([]byte(payload), &selector)
+
+	if err != nil {
+		log.Println("Error decoding the payload:", err.Error())
+		return ""
+	}
+
+	re := regexp.MustCompile(`[{}]`)
+
+	subject := fmt.Sprintf("%s", selector[0])
+	subject = re.ReplaceAllString(subject, "")
+
+	return subject
+}
+
+func getSubjectImage(verified []cosign.SignedPayload) string {
+	var outputKeys []payload.SimpleContainerImage
+	for _, vp := range verified {
+		ss := payload.SimpleContainerImage{}
+
+		err := json.Unmarshal(vp.Payload, &ss)
+		if err != nil {
+			log.Println("Error decoding the payload:", err.Error())
+			return ""
+		}
+
+		if vp.Cert != nil {
+			if ss.Optional == nil {
+				ss.Optional = make(map[string]interface{})
+			}
+			ss.Optional["Subject"] = certSubject(vp.Cert)
+		}
+
+		outputKeys = append(outputKeys, ss)
+	}
+	b, err := json.Marshal(outputKeys)
+	if err != nil {
+		log.Println("Error generating the output:", err.Error())
+		return ""
+	}
+
+	subject := getOnlySubject(string(b))
+
+	return subject
+}
+
+func certSubject(c *x509.Certificate) string {
+	switch {
+	case c.EmailAddresses != nil:
+		return c.EmailAddresses[0]
+	case c.URIs != nil:
+		return c.URIs[0].String()
+	}
+	return ""
 }
