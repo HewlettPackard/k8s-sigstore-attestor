@@ -185,9 +185,16 @@ func (c *Controller) createPodEntry(ctx context.Context, pod *corev1.Pod) error 
 
 	// Todo: get Image Name???
 	// If it not signed?
-	signedPayload, err := getSignaturePayload("registry.me:5000/spire-agent:latest-local")
-	if err != nil {
-		log.Println("Error retrieving signature payload: ", err.Error())
+	// TODO(dchen1107): Which image the container is running with?
+	// Image string `json:"image" protobuf:"bytes,6,opt,name=image"`
+	var signedPayload []cosign.SignedPayload
+	var err error
+
+	for _, value := range pod.Spec.Containers {
+		signedPayload, err = getSignaturePayload(value.Image)
+		if err != nil {
+			log.Println("Error retrieving signature payload: ", err.Error())
+		}
 	}
 
 	federationDomains := federation.GetFederationDomains(pod)
@@ -317,10 +324,13 @@ func podNameSelector(podName string) *types.Selector {
 }
 
 func subjectSelector(subjectImage string) *types.Selector {
-	return &types.Selector{
-		Type:  "k8s",
-		Value: fmt.Sprintf("image-signature-subject:%s", subjectImage),
+	if subjectImage != "" {
+		return &types.Selector{
+			Type:  "k8s",
+			Value: fmt.Sprintf("image-signature-subject:%s", subjectImage),
+		}
 	}
+	return nil
 }
 
 func selectorsField(selectors []*types.Selector) string {
