@@ -199,13 +199,27 @@ func (c *Controller) createPodEntry(ctx context.Context, pod *corev1.Pod) error 
 
 	federationDomains := federation.GetFederationDomains(pod)
 
+	selectOfSignedImage := getselectorOfSignedImage(signedPayload)
+
+	if selectOfSignedImage != "" {
+		return c.createEntry(ctx, &types.Entry{
+			ParentId: c.nodeID(),
+			SpiffeId: spiffeID,
+			Selectors: []*types.Selector{
+				namespaceSelector(pod.Namespace),
+				podNameSelector(pod.Name),
+				subjectSelector(selectOfSignedImage),
+			},
+			FederatesWith: federationDomains,
+		})
+	}
+
 	return c.createEntry(ctx, &types.Entry{
 		ParentId: c.nodeID(),
 		SpiffeId: spiffeID,
 		Selectors: []*types.Selector{
 			namespaceSelector(pod.Namespace),
 			podNameSelector(pod.Name),
-			subjectSelector(getselectorOfSignedImage(signedPayload)),
 		},
 		FederatesWith: federationDomains,
 	})
@@ -324,13 +338,10 @@ func podNameSelector(podName string) *types.Selector {
 }
 
 func subjectSelector(subjectImage string) *types.Selector {
-	if subjectImage != "" {
-		return &types.Selector{
-			Type:  "k8s",
-			Value: fmt.Sprintf("image-signature-subject:%s", subjectImage),
-		}
+	return &types.Selector{
+		Type:  "k8s",
+		Value: fmt.Sprintf("image-signature-subject:%s", subjectImage),
 	}
-	return nil
 }
 
 func selectorsField(selectors []*types.Selector) string {
