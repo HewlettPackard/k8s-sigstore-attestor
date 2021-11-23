@@ -22,6 +22,15 @@ rm conf/kind-config.yaml.bak
 # Start the kind cluster.
 start-kind-cluster "${KIND_PATH}" k8stest ./conf/kind-config.yaml
 
+#copy certificate to ssl certicates dest folder
+docker exec k8stest-control-plane cp /mnt/reg-certificate/domain.crt /etc/ssl/certs/;
+
+#append certificate to registry secret configmap
+sed 's/^/    /' ${PWD}/conf/domain.crt >> ${PWD}/conf/registry-secret.yaml
+
+#copy configmap to kustomization directory of spire-agent
+cp ${PWD}/conf/registry-secret.yaml ${PWD}/conf/agent
+
 # Load the given images in the cluster.
 container_images=("spire-server:latest-local" "spire-agent:latest-local" "k8s-workload-registrar:latest-local")
 load-images "${KIND_PATH}" k8stest "${container_images[@]}"
