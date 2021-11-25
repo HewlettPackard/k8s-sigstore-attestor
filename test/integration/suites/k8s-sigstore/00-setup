@@ -19,6 +19,13 @@ download-kubectl "${KUBECTL_PATH}"
 sed -i.bak "s#CONFDIR#${PWD}/conf#g" conf/kind-config.yaml
 rm conf/kind-config.yaml.bak
 
+#create folder which will contain the registry certificate information
+mkdir ${PWD}/conf/docker-registry
+mkdir ${PWD}/conf/docker-registry/certs
+
+#create local registry self signed certificate files
+openssl req -new -newkey rsa:4096 -nodes -sha256 -keyout ${PWD}/conf/docker-registry/certs/domain.key -addext "subjectAltName = DNS:docker-registry-local" -x509 -days 365 -subj "/C=BR/ST=PE/L=Recife" -out ${PWD}/conf/docker-registry/certs/domain.crt
+
 # Start the kind cluster.
 start-kind-cluster "${KIND_PATH}" k8stest ./conf/kind-config.yaml
 
