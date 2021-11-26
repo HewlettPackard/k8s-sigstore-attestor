@@ -22,13 +22,16 @@ type Sigstore interface {
 }
 
 type Sigstoreimpl struct {
+	verifyFunction func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]cosign.SignedPayload, error)
 }
 
 func New() Sigstore {
-	return &Sigstoreimpl{}
+	return &Sigstoreimpl{
+		verifyFunction: cosign.Verify,
+	}
 }
 
-func (Sigstoreimpl) FetchSignaturePayload(imageName string, rekorURL string) ([]cosign.SignedPayload, error) {
+func (sigstore Sigstoreimpl) FetchSignaturePayload(imageName string, rekorURL string) ([]cosign.SignedPayload, error) {
 	ref, err := name.ParseReference(imageName)
 	if err != nil {
 		message := fmt.Sprint("Error parsing the image reference: ", err.Error())
@@ -47,7 +50,7 @@ func (Sigstoreimpl) FetchSignaturePayload(imageName string, rekorURL string) ([]
 	}
 	co.SignatureRepo = sigRepo
 
-	verified, err := cosign.Verify(ctx, ref, co)
+	verified, err := sigstore.verifyFunction(ctx, ref, co)
 
 	if err != nil {
 		message := fmt.Sprint("Error verifying signature: ", err.Error())
