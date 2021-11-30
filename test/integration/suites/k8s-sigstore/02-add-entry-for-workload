@@ -15,7 +15,7 @@ add_entry_for_workload() {
     if ${KUBEBIN} -n${ns} exec ${SERVER_POD} -- /opt/spire/bin/spire-server entry create \
     -spiffeID ${workload_spiffe_id} \
     -parentID ${CLUSTERNODESPIFFEID} \
-    -selector k8s:image-signature-subject:mvtms@cesar.org.br \
+    -selector k8s:image-signature-subject:hpespirex@gmail.com \
     -selector k8s:ns:${ns} \
     -selector k8s:pod-name:${WORKLOAD_POD} ;then
         return

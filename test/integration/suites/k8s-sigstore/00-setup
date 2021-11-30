@@ -33,10 +33,10 @@ start-kind-cluster "${KIND_PATH}" k8stest ./conf/kind-config.yaml
 docker-up registry
 
 #copy signed images from public to local registry
-docker run --network="kind" -v "${PWD}"/conf/docker-registry/certs/domain.crt:/etc/ssl/certs/domain.crt gcr.io/projectsigstore/cosign:v1.2.1 copy marcusvtms/spire-tests:signed docker-registry-local:5000/workload:signed
-docker run --network="kind" -v "${PWD}"/conf/docker-registry/certs/domain.crt:/etc/ssl/certs/domain.crt gcr.io/projectsigstore/cosign:v1.2.1 copy marcusvtms/spire-tests:signed_wrong_subject docker-registry-local:5000/workload:signed_wrong_subject
+docker run --network="kind" -v "${PWD}"/conf/docker-registry/certs/domain.crt:/etc/ssl/certs/domain.crt gcr.io/projectsigstore/cosign:v1.2.1 copy hpespirex/spire-workload:signed docker-registry-local:5000/workload:signed
+docker run --network="kind" -v "${PWD}"/conf/docker-registry/certs/domain.crt:/etc/ssl/certs/domain.crt gcr.io/projectsigstore/cosign:v1.2.1 copy hpespirex/spire-workload:signed-wrong-subject docker-registry-local:5000/workload:signed-wrong-subject
 #copying unsigned image with crane tool from public to local registry
-docker run --network="kind" -v "${PWD}"/conf/docker-registry/certs/domain.crt:/etc/ssl/certs/domain.crt gcr.io/go-containerregistry/crane:v0.7.0 copy marcusvtms/spire-tests:unsigned docker-registry-local:5000/workload:unsigned
+docker run --network="kind" -v "${PWD}"/conf/docker-registry/certs/domain.crt:/etc/ssl/certs/domain.crt gcr.io/go-containerregistry/crane:v0.7.0 copy hpespirex/spire-workload:unsigned docker-registry-local:5000/workload:unsigned
 
 #copy certificate to ssl certicates dest folder on kind cluster
 docker exec k8stest-control-plane cp /mnt/reg-certificate/docker-registry/certs/domain.crt /etc/ssl/certs/
