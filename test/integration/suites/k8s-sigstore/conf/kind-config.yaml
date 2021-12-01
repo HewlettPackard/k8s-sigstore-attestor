@@ -20,3 +20,4 @@ nodes:
     hostPath: CONFDIR/admctrl
   - containerPath: /mnt/reg-certificate 
     hostPath: CONFDIR
+    
