@@ -25,10 +25,11 @@ import (
 	"github.com/sigstore/cosign/cmd/cosign/cli"
 	"github.com/sigstore/cosign/cmd/cosign/cli/fulcio"
 	"github.com/sigstore/cosign/pkg/cosign"
-	"github.com/sigstore/sigstore/pkg/signature/payload"
+
 	workloadattestorv1 "github.com/spiffe/spire-plugin-sdk/proto/spire/plugin/agent/workloadattestor/v1"
 	configv1 "github.com/spiffe/spire-plugin-sdk/proto/spire/service/common/config/v1"
 	"github.com/spiffe/spire/pkg/agent/common/cgroups"
+	"github.com/spiffe/spire/pkg/agent/plugin/workloadattestor/k8s/sigstore"
 	"github.com/spiffe/spire/pkg/common/catalog"
 	"github.com/spiffe/spire/pkg/common/pemutil"
 	"github.com/spiffe/spire/pkg/common/telemetry"
@@ -154,13 +155,16 @@ type Plugin struct {
 
 	mu     sync.RWMutex
 	config *k8sConfig
+
+	sigstore sigstore.Sigstore
 }
 
 func New() *Plugin {
 	return &Plugin{
-		fs:     cgroups.OSFileSystem{},
-		clock:  clock.New(),
-		getenv: os.Getenv,
+		fs:       cgroups.OSFileSystem{},
+		clock:    clock.New(),
+		getenv:   os.Getenv,
+		sigstore: sigstore.New(),
 	}
 }
 
@@ -206,7 +210,7 @@ func (p *Plugin) Attest(ctx context.Context, req *workloadattestorv1.AttestReque
 					log.Error("Error retrieving signature payload: ", err.Error())
 				}
 				return &workloadattestorv1.AttestResponse{
-					SelectorValues: getSelectorValuesFromPodInfo(&item, status, signedPayload),
+					SelectorValues: getSelectorValuesFromPodInfo(&item, status, signedPayload, p.sigstore),
 				}, nil
 			case containerNotInPod:
 			}
@@ -657,11 +661,11 @@ func getPodImageIdentifiers(containerStatusArray []corev1.ContainerStatus) map[s
 	return podImages
 }
 
-func getSelectorValuesFromPodInfo(pod *corev1.Pod, status *corev1.ContainerStatus, signedPayload []cosign.SignedPayload) []string {
+func getSelectorValuesFromPodInfo(pod *corev1.Pod, status *corev1.ContainerStatus, signedPayload []cosign.SignedPayload, sigstore sigstore.Sigstore) []string {
 	podImageIdentifiers := getPodImageIdentifiers(pod.Status.ContainerStatuses)
 	podInitImageIdentifiers := getPodImageIdentifiers(pod.Status.InitContainerStatuses)
 	containerImageIdentifiers := getPodImageIdentifiers([]corev1.ContainerStatus{*status})
-	selectorOfSignedImage := getselectorOfSignedImage(signedPayload)
+	selectorOfSignedImage := sigstore.ExtractselectorOfSignedImage(signedPayload)
 
 	selectorValues := []string{
 		fmt.Sprintf("sa:%s", pod.Spec.ServiceAccountName),
@@ -740,84 +744,4 @@ func getSignaturePayload(imageName string) ([]cosign.SignedPayload, error) {
 		return nil, errors.New(message)
 	}
 	return verified, nil
-}
-
-func getselectorOfSignedImage(payload []cosign.SignedPayload) string {
-	var selector string
-	// Payload can be empty if the attestor fails to retrieve it
-	// In a non-strict mode this method should be reached and return
-	// an empty selector
-	if payload != nil {
-		// verify which subject
-		selector = getSubjectImage(payload)
-	}
-
-	// return subject as selector
-	return selector
-}
-
-type Subject struct {
-	Subject string
-}
-
-type Optional struct {
-	Optional Subject
-}
-
-func getOnlySubject(payload string) string {
-	var selector []Optional
-	err := json.Unmarshal([]byte(payload), &selector)
-
-	if err != nil {
-		log.Println("Error decoding the payload:", err.Error())
-		return ""
-	}
-
-	re := regexp.MustCompile(`[{}]`)
-
-	subject := fmt.Sprintf("%s", selector[0])
-	subject = re.ReplaceAllString(subject, "")
-
-	return subject
-}
-
-func getSubjectImage(verified []cosign.SignedPayload) string {
-	var outputKeys []payload.SimpleContainerImage
-	for _, vp := range verified {
-		ss := payload.SimpleContainerImage{}
-
-		err := json.Unmarshal(vp.Payload, &ss)
-		if err != nil {
-			log.Println("Error decoding the payload:", err.Error())
-			return ""
-		}
-
-		if vp.Cert != nil {
-			if ss.Optional == nil {
-				ss.Optional = make(map[string]interface{})
-			}
-			ss.Optional["Subject"] = certSubject(vp.Cert)
-		}
-
-		outputKeys = append(outputKeys, ss)
-	}
-	b, err := json.Marshal(outputKeys)
-	if err != nil {
-		log.Println("Error generating the output:", err.Error())
-		return ""
-	}
-
-	subject := getOnlySubject(string(b))
-
-	return subject
-}
-
-func certSubject(c *x509.Certificate) string {
-	switch {
-	case c.EmailAddresses != nil:
-		return c.EmailAddresses[0]
-	case c.URIs != nil:
-		return c.URIs[0].String()
-	}
-	return ""
 }
