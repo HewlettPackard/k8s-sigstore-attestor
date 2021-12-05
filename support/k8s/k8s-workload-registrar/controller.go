@@ -34,6 +34,11 @@ type Controller struct {
 	c ControllerConfig
 }
 
+// HCLController holds the configuration parsed from HCL
+type HCLController struct {
+	CheckSignature bool `hcl:"check_signature"`
+}
+
 func NewController(config ControllerConfig) *Controller {
 	return &Controller{
 		c: config,
@@ -140,6 +145,21 @@ func (c *Controller) createPodEntry(ctx context.Context, pod *corev1.Pod) error 
 	}
 
 	federationDomains := federation.GetFederationDomains(pod)
+	config := new(HCLController)
+	checkSignature = config.CheckSignature
+
+	if checkSignature {
+		return c.createEntry(ctx, &types.Entry{
+			ParentId: c.nodeID(),
+			SpiffeId: spiffeID,
+			Selectors: []*types.Selector{
+				namespaceSelector(pod.Namespace),
+				podNameSelector(pod.Name),
+				setTrueSelector("true"),
+			},
+			FederatesWith: federationDomains,
+		})
+	}
 
 	return c.createEntry(ctx, &types.Entry{
 		ParentId: c.nodeID(),
@@ -261,6 +281,13 @@ func podNameSelector(podName string) *types.Selector {
 	return &types.Selector{
 		Type:  "k8s",
 		Value: fmt.Sprintf("pod-name:%s", podName),
+	}
+}
+
+func setTrueSelector(selectorValue string) *types.Selector {
+	return &types.Selector{
+		Type:  "k8s",
+		Value: fmt.Sprintf("signature-verified:%s", selectorValue),
 	}
 }
 
