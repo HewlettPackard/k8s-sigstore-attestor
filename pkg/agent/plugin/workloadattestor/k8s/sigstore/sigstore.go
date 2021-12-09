@@ -97,9 +97,9 @@ func getOnlySubject(payload string) string {
 		subject = re.ReplaceAllString(subject, "")
 
 		return subject
-	} else {
-		return ""
 	}
+
+	return ""
 }
 
 func getSubjectImage(verified []cosign.SignedPayload) string {
