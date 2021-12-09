@@ -85,9 +85,16 @@ func TestExtractSelectorOfSignedImage(t *testing.T) {
 			},
 			expected: "https://www.hpe.com/somepath1",
 		},
+		{
+			name:     "no payload",
+			payload:  []cosign.SignedPayload{},
+			expected: "",
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Logf("payload: %s", string(tc.payload[0].Payload))
+			if len(tc.payload) > 0 {
+				t.Logf("payload: %s", string(tc.payload[0].Payload))
+			}
 
 			assert.Equal(t, tc.expected, sigstore.ExtractselectorOfSignedImage(tc.payload))
 		})
