@@ -146,7 +146,7 @@ func (c *Controller) createPodEntry(ctx context.Context, pod *corev1.Pod) error 
 
 	federationDomains := federation.GetFederationDomains(pod)
 	config := new(HCLController)
-	checkSignature = config.CheckSignature
+	checkSignature := config.CheckSignature
 
 	if checkSignature {
 		return c.createEntry(ctx, &types.Entry{
