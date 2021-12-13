@@ -130,7 +130,7 @@ func getImageSubject(verified []oci.Signature) string {
 		}
 		err = json.Unmarshal(pl, &ss)
 		if err != nil {
-			fmt.Println("Error decoding the payload:", err.Error())
+			log.Println("Error decoding the payload:", err.Error())
 			return ""
 		}
 		cert, err := vs.Cert()
