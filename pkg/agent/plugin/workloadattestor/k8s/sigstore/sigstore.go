@@ -7,66 +7,83 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/url"
 	"regexp"
 
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/sigstore/cosign/cmd/cosign/cli"
 	"github.com/sigstore/cosign/cmd/cosign/cli/fulcio"
+	rekorclient "github.com/sigstore/rekor/pkg/generated/client"
+
 	"github.com/sigstore/cosign/pkg/cosign"
+	"github.com/sigstore/cosign/pkg/oci"
 	"github.com/sigstore/sigstore/pkg/signature/payload"
 )
 
 type Sigstore interface {
-	FetchSignaturePayload(imageName string, rekorURL string) ([]cosign.SignedPayload, error)
-	ExtractselectorOfSignedImage(payload []cosign.SignedPayload) string
+	FetchSignaturePayload(imageName string, rekorURL string) ([]oci.Signature, error)
+	ExtractselectorOfSignedImage(signatures []oci.Signature) string
 }
 
 type Sigstoreimpl struct {
-	verifyFunction func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]cosign.SignedPayload, error)
+	verifyFunction func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error)
 }
 
 func New() Sigstore {
 	return &Sigstoreimpl{
-		verifyFunction: cosign.Verify,
+		verifyFunction: cosign.VerifyImageSignatures,
 	}
 }
 
-func (sigstore Sigstoreimpl) FetchSignaturePayload(imageName string, rekorURL string) ([]cosign.SignedPayload, error) {
+// FetchSignaturePayload retrieves the signature payload from the specified image
+func (sigstore Sigstoreimpl) FetchSignaturePayload(imageName string, rekorURL string) ([]oci.Signature, error) {
 	ref, err := name.ParseReference(imageName)
 	if err != nil {
-		message := fmt.Sprint("Error parsing the image reference: ", err.Error())
+		message := fmt.Sprint("Error parsing image reference: ", err.Error())
 		return nil, errors.New(message)
 	}
 
 	ctx := context.Background()
 	co := &cosign.CheckOpts{}
-	co.RekorURL = rekorURL
-	co.RootCerts = fulcio.GetRoots()
-
-	sigRepo, err := cli.TargetRepositoryForImage(ref)
+	rekorURI, err := url.Parse(rekorURL)
 	if err != nil {
-		message := fmt.Sprint("TargetRepositoryForImage returned error: ", err.Error())
+		message := fmt.Sprint("Error parsing rekor URI: ", err.Error())
 		return nil, errors.New(message)
 	}
-	co.SignatureRepo = sigRepo
+	// TODO: decide if http is allowed
+	if rekorURI.Scheme != "" && rekorURI.Scheme != "http" && rekorURI.Scheme != "https" {
+		return nil, errors.New("Invalid rekor URL Scheme: " + rekorURI.Scheme)
+	}
+	co.RekorClient = rekorclient.NewHTTPClientWithConfig(nil, &rekorclient.TransportConfig{
+		Schemes:  []string{rekorURI.Scheme},
+		Host:     rekorURI.Host,
+		BasePath: rekorURI.Path,
+	})
+	if co.RekorClient == nil {
+		return nil, errors.New("Error creating rekor client")
+	}
+	co.RootCerts = fulcio.GetRoots()
 
-	verified, err := sigstore.verifyFunction(ctx, ref, co)
-
+	sigs, ok, err := sigstore.verifyFunction(ctx, ref, co)
 	if err != nil {
 		message := fmt.Sprint("Error verifying signature: ", err.Error())
 		return nil, errors.New(message)
 	}
-	return verified, nil
+	if !ok {
+		message := fmt.Sprint("Bundle not verified: ", err.Error())
+		return nil, errors.New(message)
+	}
+
+	return sigs, nil
 }
 
-func (Sigstoreimpl) ExtractselectorOfSignedImage(payload []cosign.SignedPayload) string {
+func (Sigstoreimpl) ExtractselectorOfSignedImage(signatures []oci.Signature) string {
 	var selector string
 	// Payload can be empty if the attestor fails to retrieve it
 	// In a non-strict mode this method should be reached and return
 	// an empty selector
-	if payload != nil {
+	if signatures != nil {
 		// verify which subject
-		selector = getSubjectImage(payload)
+		selector = getImageSubject(signatures)
 	}
 
 	// return subject as selector
@@ -74,11 +91,11 @@ func (Sigstoreimpl) ExtractselectorOfSignedImage(payload []cosign.SignedPayload)
 }
 
 type Subject struct {
-	Subject string
+	Subject string `json:"Subject"`
 }
 
 type Optional struct {
-	Optional Subject
+	Optional Subject `json:"optional"`
 }
 
 func getOnlySubject(payload string) string {
@@ -102,22 +119,30 @@ func getOnlySubject(payload string) string {
 	return ""
 }
 
-func getSubjectImage(verified []cosign.SignedPayload) string {
+func getImageSubject(verified []oci.Signature) string {
 	var outputKeys []payload.SimpleContainerImage
-	for _, vp := range verified {
+	for _, vs := range verified {
 		ss := payload.SimpleContainerImage{}
-
-		err := json.Unmarshal(vp.Payload, &ss)
+		pl, err := vs.Payload()
 		if err != nil {
-			log.Println("Error decoding the payload:", err.Error())
+			log.Println("Error accessing the payload:", err.Error())
 			return ""
 		}
-
-		if vp.Cert != nil {
+		err = json.Unmarshal(pl, &ss)
+		if err != nil {
+			fmt.Println("Error decoding the payload:", err.Error())
+			return ""
+		}
+		cert, err := vs.Cert()
+		if err != nil {
+			log.Println("Error accessing the certificate:", err.Error())
+			return ""
+		}
+		if cert != nil {
 			if ss.Optional == nil {
 				ss.Optional = make(map[string]interface{})
 			}
-			ss.Optional["Subject"] = certSubject(vp.Cert)
+			ss.Optional["Subject"] = certSubject(cert)
 		}
 
 		outputKeys = append(outputKeys, ss)
@@ -135,10 +160,14 @@ func getSubjectImage(verified []cosign.SignedPayload) string {
 
 func certSubject(c *x509.Certificate) string {
 	switch {
+	case c == nil:
+		return ""
 	case c.EmailAddresses != nil:
 		return c.EmailAddresses[0]
 	case c.URIs != nil:
-		return c.URIs[0].String()
+		// removing leading '//' from c.URIs[0].String()
+		re := regexp.MustCompile(`^\/*(?P<email>.*)`)
+		return re.ReplaceAllString(c.URIs[0].String(), "$email")
 	}
 	return ""
 }

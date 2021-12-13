@@ -19,12 +19,9 @@ import (
 	"time"
 
 	"github.com/andres-erbsen/clock"
-	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/hcl"
-	"github.com/sigstore/cosign/cmd/cosign/cli"
-	"github.com/sigstore/cosign/cmd/cosign/cli/fulcio"
-	"github.com/sigstore/cosign/pkg/cosign"
+	"github.com/sigstore/cosign/pkg/oci"
 
 	workloadattestorv1 "github.com/spiffe/spire-plugin-sdk/proto/spire/plugin/agent/workloadattestor/v1"
 	configv1 "github.com/spiffe/spire-plugin-sdk/proto/spire/service/common/config/v1"
@@ -43,8 +40,8 @@ const (
 	defaultMaxPollAttempts   = 60
 	defaultPollRetryInterval = time.Millisecond * 500
 	defaultSecureKubeletPort = 10250
-	defaultKubeletCAPath     = "/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-	defaultTokenPath         = "/run/secrets/kubernetes.io/serviceaccount/token" //nolint: gosec // false positive
+	defaultKubeletCAPath     = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+	defaultTokenPath         = "/var/run/secrets/kubernetes.io/serviceaccount/token" //nolint: gosec // false positive
 	defaultNodeNameEnv       = "MY_NODE_NAME"
 	defaultReloadInterval    = time.Minute
 )
@@ -205,12 +202,12 @@ func (p *Plugin) Attest(ctx context.Context, req *workloadattestorv1.AttestReque
 			status, lookup := lookUpContainerInPod(containerID, item.Status)
 			switch lookup {
 			case containerInPod:
-				signedPayload, err := getSignaturePayload(status.Image)
+				signatures, err := p.sigstore.FetchSignaturePayload(status.Image, p.config.RekorURL)
 				if err != nil {
 					log.Error("Error retrieving signature payload: ", err.Error())
 				}
 				return &workloadattestorv1.AttestResponse{
-					SelectorValues: getSelectorValuesFromPodInfo(&item, status, signedPayload, p.sigstore),
+					SelectorValues: getSelectorValuesFromPodInfo(&item, status, signatures, p.sigstore),
 				}, nil
 			case containerNotInPod:
 			}
@@ -661,11 +658,11 @@ func getPodImageIdentifiers(containerStatusArray []corev1.ContainerStatus) map[s
 	return podImages
 }
 
-func getSelectorValuesFromPodInfo(pod *corev1.Pod, status *corev1.ContainerStatus, signedPayload []cosign.SignedPayload, sigstore sigstore.Sigstore) []string {
+func getSelectorValuesFromPodInfo(pod *corev1.Pod, status *corev1.ContainerStatus, signatures []oci.Signature, sigstore sigstore.Sigstore) []string {
 	podImageIdentifiers := getPodImageIdentifiers(pod.Status.ContainerStatuses)
 	podInitImageIdentifiers := getPodImageIdentifiers(pod.Status.InitContainerStatuses)
 	containerImageIdentifiers := getPodImageIdentifiers([]corev1.ContainerStatus{*status})
-	selectorOfSignedImage := sigstore.ExtractselectorOfSignedImage(signedPayload)
+	selectorOfSignedImage := sigstore.ExtractselectorOfSignedImage(signatures)
 
 	selectorValues := []string{
 		fmt.Sprintf("sa:%s", pod.Spec.ServiceAccountName),
@@ -715,33 +712,4 @@ func newCertPool(certs []*x509.Certificate) *x509.CertPool {
 		certPool.AddCert(cert)
 	}
 	return certPool
-}
-
-func getSignaturePayload(imageName string) ([]cosign.SignedPayload, error) {
-	config := new(HCLConfig)
-	ref, err := name.ParseReference(imageName)
-	if err != nil {
-		message := fmt.Sprint("Error parsing the image reference: ", err.Error())
-		return nil, errors.New(message)
-	}
-
-	ctx := context.Background()
-	co := &cosign.CheckOpts{}
-	co.RekorURL = config.RekorURL
-	co.RootCerts = fulcio.GetRoots()
-
-	sigRepo, err := cli.TargetRepositoryForImage(ref)
-	if err != nil {
-		message := fmt.Sprint("TargetRepositoryForImage returned error: ", err.Error())
-		return nil, errors.New(message)
-	}
-	co.SignatureRepo = sigRepo
-
-	verified, err := cosign.Verify(ctx, ref, co)
-
-	if err != nil {
-		message := fmt.Sprint("Error verifying signature: ", err.Error())
-		return nil, errors.New(message)
-	}
-	return verified, nil
 }
