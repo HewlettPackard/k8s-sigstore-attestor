@@ -48,6 +48,7 @@ type CommonMode struct {
 	PodAnnotation      string   `hcl:"pod_annotation"`
 	Mode               string   `hcl:"mode"`
 	DisabledNamespaces []string `hcl:"disabled_namespaces"`
+	CheckSignature     bool     `hcl:"check_signature"`
 	serverAPI          ServerAPIClients
 }
 

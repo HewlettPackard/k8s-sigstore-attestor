@@ -28,15 +28,11 @@ type ControllerConfig struct {
 	PodLabel           string
 	PodAnnotation      string
 	DisabledNamespaces map[string]bool
+	CheckSignature     bool
 }
 
 type Controller struct {
 	c ControllerConfig
-}
-
-// HCLController holds the configuration parsed from HCL
-type HCLController struct {
-	CheckSignature bool `hcl:"check_signature"`
 }
 
 func NewController(config ControllerConfig) *Controller {
@@ -145,10 +141,7 @@ func (c *Controller) createPodEntry(ctx context.Context, pod *corev1.Pod) error 
 	}
 
 	federationDomains := federation.GetFederationDomains(pod)
-	config := new(HCLController)
-	checkSignature := config.CheckSignature
-
-	if checkSignature {
+	if c.c.CheckSignature {
 		return c.createEntry(ctx, &types.Entry{
 			ParentId: c.nodeID(),
 			SpiffeId: spiffeID,
