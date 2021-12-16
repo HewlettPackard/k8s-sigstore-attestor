@@ -208,45 +208,75 @@ func TestSigstoreimpl_FetchSignaturePayload(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "fetch image with 2 signatures",
+			fields: fields{
+				verifyFunction: func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
+					return []oci.Signature{
+						signature{
+							payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "some digest"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 2","key3": "value 3"}}`),
+						},
+						signature{
+							payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "some digest"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 4","key3": "value 5"}}`),
+						},
+					}, true, nil
+				},
+			},
+			args: args{
+				imageName: "docker-registry.com/some/image",
+				rekorURL:  "some url",
+			},
+			want: []oci.Signature{
+				signature{
+					payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "some digest"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 2","key3": "value 3"}}`),
+				},
+				signature{
+					payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "some digest"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 4","key3": "value 5"}}`),
+				},
+			},
+			wantErr: false,
+		},
+		{
 			name: "fetch image with no signature",
 			fields: fields{
 				verifyFunction: func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
-					return []oci.Signature{}, true, nil
+					return []oci.Signature{}, true, fmt.Errorf("no matching signatures 1")
 				},
 			},
 			args: args{
 				imageName: "docker-registry.com/some/image",
 				rekorURL:  "some url",
 			},
-			want:    []oci.Signature{},
-			wantErr: false,
+			want:    nil,
+			wantErr: true,
 		},
-		{
+		{ //should never happen, since the verify function returns an error on empty verified signature list
 			name: "fetch image with no signature and no error",
 			fields: fields{
 				verifyFunction: func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
-					return []oci.Signature{}, false, nil
+					return []oci.Signature{}, true, fmt.Errorf("no matching signatures 2")
 				},
 			},
 			args: args{
 				imageName: "docker-registry.com/some/image",
 				rekorURL:  "some url",
 			},
-			want:    []oci.Signature{},
-			wantErr: false,
+			want:    nil,
+			wantErr: true,
 		},
 		{
-			name: "fetch image with no signature and error",
+			name: "fetch image with signature and error",
 			fields: fields{
 				verifyFunction: func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
-					return []oci.Signature{}, true, errors.New("some error")
+					return []oci.Signature{signature{
+						payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "some digest"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 2","key3": "value 3"}}`),
+					}}, true, errors.New("some error")
 				},
 			},
 			args: args{
 				imageName: "docker-registry.com/some/image",
 				rekorURL:  "some url",
 			},
-			want:    []oci.Signature{},
+			want:    nil,
 			wantErr: true,
 		},
 	}
