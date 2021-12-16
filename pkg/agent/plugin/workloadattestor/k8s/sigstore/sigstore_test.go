@@ -3,6 +3,7 @@ package sigstore
 import (
 	"context"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"net/url"
 	"reflect"
@@ -184,7 +185,70 @@ func TestSigstoreimpl_FetchSignaturePayload(t *testing.T) {
 		want    []oci.Signature
 		wantErr bool
 	}{
-		//TODO: add test cases
+		{
+			name: "fetch image with signature",
+			fields: fields{
+				verifyFunction: func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
+					return []oci.Signature{
+						signature{
+							payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "some digest"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 2","key3": "value 3"}}`),
+						},
+					}, true, nil
+				},
+			},
+			args: args{
+				imageName: "docker-registry.com/some/image",
+				rekorURL:  "some url",
+			},
+			want: []oci.Signature{
+				signature{
+					payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "some digest"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 2","key3": "value 3"}}`),
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "fetch image with no signature",
+			fields: fields{
+				verifyFunction: func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
+					return []oci.Signature{}, true, nil
+				},
+			},
+			args: args{
+				imageName: "docker-registry.com/some/image",
+				rekorURL:  "some url",
+			},
+			want:    []oci.Signature{},
+			wantErr: false,
+		},
+		{
+			name: "fetch image with no signature and no error",
+			fields: fields{
+				verifyFunction: func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
+					return []oci.Signature{}, false, nil
+				},
+			},
+			args: args{
+				imageName: "docker-registry.com/some/image",
+				rekorURL:  "some url",
+			},
+			want:    []oci.Signature{},
+			wantErr: false,
+		},
+		{
+			name: "fetch image with no signature and error",
+			fields: fields{
+				verifyFunction: func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
+					return []oci.Signature{}, true, errors.New("some error")
+				},
+			},
+			args: args{
+				imageName: "docker-registry.com/some/image",
+				rekorURL:  "some url",
+			},
+			want:    []oci.Signature{},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
