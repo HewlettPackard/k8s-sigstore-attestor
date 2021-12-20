@@ -12,7 +12,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/sigstore/cosign/cmd/cosign/cli/fulcio"
-	rekorclient "github.com/sigstore/rekor/pkg/generated/client"
+	rekor "github.com/sigstore/rekor/pkg/generated/client"
 
 	"github.com/sigstore/cosign/pkg/cosign"
 	"github.com/sigstore/cosign/pkg/oci"
@@ -42,8 +42,6 @@ func (sigstore Sigstoreimpl) FetchSignaturePayload(imageName string, rekorURL st
 		return nil, errors.New(message)
 	}
 
-	ctx := context.Background()
-	co := &cosign.CheckOpts{}
 	rekorURI, err := url.Parse(rekorURL)
 	if err != nil {
 		message := fmt.Sprint("Error parsing rekor URI: ", err.Error())
@@ -53,7 +51,11 @@ func (sigstore Sigstoreimpl) FetchSignaturePayload(imageName string, rekorURL st
 	if rekorURI.Scheme != "" && rekorURI.Scheme != "http" && rekorURI.Scheme != "https" {
 		return nil, errors.New("Invalid rekor URL Scheme: " + rekorURI.Scheme)
 	}
-	co.RekorClient = rekorclient.NewHTTPClientWithConfig(nil, &rekorclient.TransportConfig{
+	if rekorURI.Host == "" {
+		return nil, errors.New("Invalid rekor URL Host: " + rekorURI.Host)
+	}
+	co := &cosign.CheckOpts{}
+	co.RekorClient = rekor.NewHTTPClientWithConfig(nil, &rekor.TransportConfig{
 		Schemes:  []string{rekorURI.Scheme},
 		Host:     rekorURI.Host,
 		BasePath: rekorURI.Path,
@@ -63,13 +65,14 @@ func (sigstore Sigstoreimpl) FetchSignaturePayload(imageName string, rekorURL st
 	}
 	co.RootCerts = fulcio.GetRoots()
 
+	ctx := context.Background()
 	sigs, ok, err := sigstore.verifyFunction(ctx, ref, co)
 	if err != nil {
 		message := fmt.Sprint("Error verifying signature: ", err.Error())
 		return nil, errors.New(message)
 	}
 	if !ok {
-		message := fmt.Sprint("Bundle not verified: ", err.Error())
+		message := "Bundle not verified for " + imageName
 		return nil, errors.New(message)
 	}
 
@@ -107,11 +110,11 @@ func getOnlySubject(payload string) string {
 		return ""
 	}
 
-	re := regexp.MustCompile(`[{}]`)
+	re := regexp.MustCompile(`[{}]`) // brackets regex
 
-	if len(selector) > 0 {
-		subject := fmt.Sprintf("%s", selector[0])
-		subject = re.ReplaceAllString(subject, "")
+	if len(selector) > 0 { // if there is a subject
+		subject := fmt.Sprintf("%s", selector[0])  // get the first subject
+		subject = re.ReplaceAllString(subject, "") // remove the brackets
 
 		return subject
 	}
@@ -148,8 +151,9 @@ func getImageSubject(verified []oci.Signature) string {
 		outputKeys = append(outputKeys, ss)
 	}
 	b, err := json.Marshal(outputKeys)
+	// shouldn't ever happen, since any garbled text would be caught by the unmarshal earlier
 	if err != nil {
-		log.Println("Error generating the output:", err.Error())
+		log.Println("Error generating signature: ", err.Error())
 		return ""
 	}
 
