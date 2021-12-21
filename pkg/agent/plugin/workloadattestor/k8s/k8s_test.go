@@ -210,6 +210,7 @@ func (s *Suite) TestAttestWithSigstoreSignatures() {
 	s.setSigstoreSelector("sigstore-subject")
 	p := s.loadInsecurePlugin()
 	s.requireAttestSuccessWithPodandSignature(p)
+	s.setSigstoreSelector("")
 }
 
 func (s *Suite) TestAttestWithPidInKindPod() {
@@ -721,11 +722,15 @@ func (s *Suite) setServer(server *httptest.Server) {
 
 func (s *Suite) setSigstoreSelector(selector string) {
 	s.selector = selector
-	s.sigs = []oci.Signature{
-		signature{
-			payload: []byte("payload"),
-			cert:    &x509.Certificate{},
-		},
+	if s.selector == "" {
+		s.sigs = nil
+	} else {
+		s.sigs = []oci.Signature{
+			signature{
+				payload: []byte("payload"),
+				cert:    &x509.Certificate{},
+			},
+		}
 	}
 }
 

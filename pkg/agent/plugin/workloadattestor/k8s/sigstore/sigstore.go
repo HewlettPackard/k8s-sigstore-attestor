@@ -41,25 +41,24 @@ func (sigstore Sigstoreimpl) FetchSignaturePayload(imageName string, rekorURL st
 		message := fmt.Sprint("Error parsing image reference: ", err.Error())
 		return nil, errors.New(message)
 	}
-
-	rekorURI, err := url.Parse(rekorURL)
-	if err != nil {
-		message := fmt.Sprint("Error parsing rekor URI: ", err.Error())
-		return nil, errors.New(message)
-	}
-	// TODO: decide if http is allowed
-	if rekorURI.Scheme != "" && rekorURI.Scheme != "http" && rekorURI.Scheme != "https" {
-		return nil, errors.New("Invalid rekor URL Scheme: " + rekorURI.Scheme)
-	}
-	if rekorURI.Host == "" {
-		return nil, errors.New("Invalid rekor URL Host: " + rekorURI.Host)
-	}
 	co := &cosign.CheckOpts{}
-	co.RekorClient = rekor.NewHTTPClientWithConfig(nil, &rekor.TransportConfig{
-		Schemes:  []string{rekorURI.Scheme},
-		Host:     rekorURI.Host,
-		BasePath: rekorURI.Path,
-	})
+	if rekorURL != "" {
+		rekorURI, err := url.Parse(rekorURL)
+		if err != nil {
+			message := fmt.Sprint("Error parsing rekor URI: ", err.Error())
+			return nil, errors.New(message)
+		}
+		// TODO: decide if http is allowed
+		if rekorURI.Scheme != "" && rekorURI.Scheme != "http" && rekorURI.Scheme != "https" {
+			return nil, errors.New("Invalid rekor URL Scheme: " + rekorURI.Scheme)
+		}
+		if rekorURI.Host == "" {
+			return nil, errors.New("Invalid rekor URL Host: " + rekorURI.Host)
+		}
+		co.RekorClient = rekor.NewHTTPClientWithConfig(nil, rekor.DefaultTransportConfig().WithBasePath(rekorURI.Path).WithHost(rekorURI.Host))
+	} else {
+		co.RekorClient = rekor.NewHTTPClientWithConfig(nil, rekor.DefaultTransportConfig())
+	}
 	if co.RekorClient == nil {
 		return nil, errors.New("Error creating rekor client")
 	}
