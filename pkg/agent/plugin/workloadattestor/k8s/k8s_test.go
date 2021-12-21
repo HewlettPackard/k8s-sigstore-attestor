@@ -692,8 +692,8 @@ func (s *SigstoreMock) SetSig(sigs []oci.Signature) {
 func (s *SigstoreMock) FetchSignaturePayload(imageName string, rekorURL string) ([]oci.Signature, error) {
 	return s.sigs, nil
 }
-func (s *SigstoreMock) ExtractselectorOfSignedImage(signatures []oci.Signature) string {
 
+func (s *SigstoreMock) ExtractselectorOfSignedImage(signatures []oci.Signature) string {
 	return s.selector
 }
 
@@ -720,7 +720,6 @@ func (s *Suite) setServer(server *httptest.Server) {
 }
 
 func (s *Suite) setSigstoreSelector(selector string) {
-
 	s.selector = selector
 	s.sigs = []oci.Signature{
 		signature{

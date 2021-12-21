@@ -191,7 +191,7 @@ func TestSigstoreimpl_FetchSignaturePayload(t *testing.T) {
 			want:    nil,
 			wantErr: true,
 		},
-		{ //should never happen, since the verify function returns an error on empty verified signature list
+		{ // should never happen, since the verify function returns an error on empty verified signature list
 			name: "fetch image with no signature and no error",
 			fields: fields{
 				verifyFunction: func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
@@ -504,32 +504,6 @@ func (noPayloadSignature) Chain() ([]*x509.Certificate, error) {
 
 func (noPayloadSignature) Bundle() (*oci.Bundle, error) {
 	return nil, nil
-}
-
-type noBundleSignature signature
-
-func (noBundleSignature) Annotations() (map[string]string, error) {
-	return nil, nil
-}
-
-func (s noBundleSignature) Payload() ([]byte, error) {
-	return s.payload, nil
-}
-
-func (noBundleSignature) Base64Signature() (string, error) {
-	return "", nil
-}
-
-func (s noBundleSignature) Cert() (*x509.Certificate, error) {
-	return s.cert, nil
-}
-
-func (noBundleSignature) Chain() ([]*x509.Certificate, error) {
-	return nil, nil
-}
-
-func (noBundleSignature) Bundle() (*oci.Bundle, error) {
-	return nil, errors.New("no bundle test")
 }
 
 func Test_getImageSubject(t *testing.T) {
