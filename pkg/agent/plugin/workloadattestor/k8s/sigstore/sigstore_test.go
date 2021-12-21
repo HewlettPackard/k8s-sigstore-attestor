@@ -249,6 +249,28 @@ func TestSigstoreimpl_FetchSignaturePayload(t *testing.T) {
 			want:    nil,
 			wantErr: true,
 		},
+		{
+			name: "fetch image with signature, empty rekor url",
+			fields: fields{
+				verifyFunction: func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
+					return []oci.Signature{
+						signature{
+							payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "some digest"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 2","key3": "value 3"}}`),
+						},
+					}, true, nil
+				},
+			},
+			args: args{
+				imageName: "docker-registry.com/some/image",
+				rekorURL:  "",
+			},
+			want: []oci.Signature{
+				signature{
+					payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "some digest"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 2","key3": "value 3"}}`),
+				},
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
