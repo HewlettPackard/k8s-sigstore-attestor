@@ -1,6 +1,7 @@
 package sigstore
 
 import (
+	"bytes"
 	"context"
 	"crypto/x509"
 	"encoding/json"
@@ -11,6 +12,8 @@ import (
 	"regexp"
 
 	"github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/sigstore/cosign/cmd/cosign/cli/fulcio"
 	rekorclient "github.com/sigstore/rekor/pkg/generated/client"
 
@@ -40,6 +43,11 @@ func (sigstore Sigstoreimpl) FetchSignaturePayload(imageName string, rekorURL st
 	if err != nil {
 		message := fmt.Sprint("Error parsing image reference: ", err.Error())
 		return nil, errors.New(message)
+	}
+
+	ok, err := validateImage(ref)
+	if !ok || err != nil {
+		return nil, errors.New("Could not validate image reference digest")
 	}
 
 	ctx := context.Background()
@@ -170,4 +178,30 @@ func certSubject(c *x509.Certificate) string {
 		return re.ReplaceAllString(c.URIs[0].String(), "$email")
 	}
 	return ""
+}
+
+func validateImage(ref name.Reference) (bool, error) {
+	desc, err := remote.Get(ref)
+	if err != nil {
+		return false, err
+	}
+
+	hash, _, err := v1.SHA256(bytes.NewReader(desc.Manifest))
+	if err != nil {
+		return false, err
+	}
+
+	return validateRefDigest(ref, hash.String())
+}
+
+func validateRefDigest(ref name.Reference, digest string) (bool, error) {
+	if dgst, ok := ref.(name.Digest); ok {
+		if dgst.DigestStr() != digest {
+			return false, nil
+		}
+	} else {
+		return false, errors.New("Reference is not Digest")
+	}
+
+	return true, nil
 }
