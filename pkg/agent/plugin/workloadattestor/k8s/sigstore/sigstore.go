@@ -47,7 +47,8 @@ func (sigstore Sigstoreimpl) FetchSignaturePayload(imageName string, rekorURL st
 
 	ok, err := validateImage(ref)
 	if !ok || err != nil {
-		return nil, errors.New("Could not validate image reference digest")
+		message := fmt.Sprint("Could not validate image reference digest: ", err.Error())
+		return nil, errors.New(message)
 	}
 
 	ctx := context.Background()
