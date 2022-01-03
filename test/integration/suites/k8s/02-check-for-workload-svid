@@ -2,7 +2,7 @@
 
 source init-kubectl
 
-MAXFETCHCHECKS=60
+MAXFETCHCHECKS=1
 FETCHCHECKINTERVAL=1
 for ((i=1; i<=${MAXFETCHCHECKS}; i++)); do
     EXAMPLEPOD=$(./bin/kubectl -nspire get pod -l app=example-workload -o jsonpath="{.items[0].metadata.name}")

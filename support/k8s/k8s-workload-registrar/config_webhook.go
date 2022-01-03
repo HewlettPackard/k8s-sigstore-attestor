@@ -68,6 +68,7 @@ func (c *WebhookMode) Run(ctx context.Context) error {
 		PodLabel:           c.PodLabel,
 		PodAnnotation:      c.PodAnnotation,
 		DisabledNamespaces: disabledNamespacesMap,
+		CheckSignature:     c.CheckSignature,
 	})
 
 	log.Info("Initializing registrar")

@@ -10,6 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 	entryv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/entry/v1"
 	"github.com/spiffe/spire-api-sdk/proto/spire/api/types"
+	"github.com/spiffe/spire/pkg/agent/plugin/workloadattestor/k8s/sigstore"
 	"github.com/spiffe/spire/pkg/common/idutil"
 	"github.com/spiffe/spire/support/k8s/k8s-workload-registrar/federation"
 	"github.com/zeebo/errs"
@@ -32,12 +33,14 @@ type ControllerConfig struct {
 }
 
 type Controller struct {
-	c ControllerConfig
+	c        ControllerConfig
+	sigstore sigstore.Sigstore
 }
 
 func NewController(config ControllerConfig) *Controller {
 	return &Controller{
-		c: config,
+		c:        config,
+		sigstore: sigstore.New(),
 	}
 }
 
@@ -141,6 +144,12 @@ func (c *Controller) createPodEntry(ctx context.Context, pod *corev1.Pod) error 
 	}
 
 	federationDomains := federation.GetFederationDomains(pod)
+	signatures, err := c.sigstore.FetchSignaturePayload(pod.Spec.Containers[0].Image, "https://rekor.sigstore.dev")
+	if err != nil {
+		fmt.Println("Error retrieving signature payload: ", err.Error())
+	}
+	selectorOfSignedImage := c.sigstore.ExtractselectorOfSignedImage(signatures)
+
 	if c.c.CheckSignature {
 		return c.createEntry(ctx, &types.Entry{
 			ParentId: c.nodeID(),
@@ -148,7 +157,7 @@ func (c *Controller) createPodEntry(ctx context.Context, pod *corev1.Pod) error 
 			Selectors: []*types.Selector{
 				namespaceSelector(pod.Namespace),
 				podNameSelector(pod.Name),
-				setTrueSelector("true"),
+				subjectSelector(selectorOfSignedImage),
 			},
 			FederatesWith: federationDomains,
 		})
@@ -277,10 +286,10 @@ func podNameSelector(podName string) *types.Selector {
 	}
 }
 
-func setTrueSelector(selectorValue string) *types.Selector {
+func subjectSelector(selectorValue string) *types.Selector {
 	return &types.Selector{
 		Type:  "k8s",
-		Value: fmt.Sprintf("signature-verified:%s", selectorValue),
+		Value: fmt.Sprintf("image-signature-subject:%s", selectorValue),
 	}
 }
 
