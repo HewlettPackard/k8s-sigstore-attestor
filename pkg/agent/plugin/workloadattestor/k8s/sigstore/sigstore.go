@@ -197,12 +197,11 @@ func validateImage(ref name.Reference) (bool, error) {
 
 func validateRefDigest(ref name.Reference, digest string) (bool, error) {
 	if dgst, ok := ref.(name.Digest); ok {
-		if dgst.DigestStr() != digest {
-			return false, nil
+		if dgst.DigestStr() == digest {
+			return true, nil
 		}
-	} else {
-		return false, errors.New("Reference is not Digest")
 	}
 
-	return true, nil
+	// do nothing is ref is a Tag
+	return false, nil
 }
