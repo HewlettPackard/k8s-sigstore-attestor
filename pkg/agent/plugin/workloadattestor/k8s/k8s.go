@@ -126,20 +126,18 @@ type HCLConfig struct {
 
 // k8sConfig holds the configuration distilled from HCL
 type k8sConfig struct {
-	Secure                             bool
-	Port                               int
-	MaxPollAttempts                    int
-	PollRetryInterval                  time.Duration
-	SkipKubeletVerification            bool
-	TokenPath                          string
-	CertificatePath                    string
-	PrivateKeyPath                     string
-	KubeletCAPath                      string
-	NodeName                           string
-	ReloadInterval                     time.Duration
-	RekorURL                           string
-	TrustedSignatureSubjects           []string
-	SkipSignatureVerificationImageList []string
+	Secure                  bool
+	Port                    int
+	MaxPollAttempts         int
+	PollRetryInterval       time.Duration
+	SkipKubeletVerification bool
+	TokenPath               string
+	CertificatePath         string
+	PrivateKeyPath          string
+	KubeletCAPath           string
+	NodeName                string
+	ReloadInterval          time.Duration
+	RekorURL                string
 
 	SkippedImageSubjects []string
 
