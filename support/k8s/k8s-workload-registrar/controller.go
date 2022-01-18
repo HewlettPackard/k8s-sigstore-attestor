@@ -158,6 +158,7 @@ func (c *Controller) createPodEntry(ctx context.Context, pod *corev1.Pod) error 
 				namespaceSelector(pod.Namespace),
 				podNameSelector(pod.Name),
 				subjectSelector(selectorOfSignedImage),
+				setTrueSignatureSelector("true"),
 			},
 			FederatesWith: federationDomains,
 		})
@@ -169,6 +170,7 @@ func (c *Controller) createPodEntry(ctx context.Context, pod *corev1.Pod) error 
 		Selectors: []*types.Selector{
 			namespaceSelector(pod.Namespace),
 			podNameSelector(pod.Name),
+			subjectSelector(selectorOfSignedImage),
 		},
 		FederatesWith: federationDomains,
 	})
@@ -290,6 +292,13 @@ func subjectSelector(selectorValue string) *types.Selector {
 	return &types.Selector{
 		Type:  "k8s",
 		Value: fmt.Sprintf("image-signature-subject:%s", selectorValue),
+	}
+}
+
+func setTrueSignatureSelector(selectorValue string) *types.Selector {
+	return &types.Selector{
+		Type:  "k8s",
+		Value: fmt.Sprintf("signature-verified:%s", selectorValue),
 	}
 }
 
