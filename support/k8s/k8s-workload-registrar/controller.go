@@ -146,7 +146,6 @@ func (c *Controller) createPodEntry(ctx context.Context, pod *corev1.Pod) error 
 	federationDomains := federation.GetFederationDomains(pod)
 
 	if c.c.CheckSignature {
-
 		return c.createEntry(ctx, &types.Entry{
 			ParentId: c.nodeID(),
 			SpiffeId: spiffeID,
