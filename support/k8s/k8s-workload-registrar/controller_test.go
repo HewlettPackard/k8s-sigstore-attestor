@@ -229,7 +229,6 @@ func TestControllerServiceAccountBasedRegistration(t *testing.T) {
 			Selectors: []*types.Selector{
 				{Type: "k8s", Value: "ns:NAMESPACE"},
 				{Type: "k8s", Value: "pod-name:PODNAME"},
-				{Type: "k8s", Value: "image-signature-subject:wra@cesar.org.br"},
 			},
 		},
 	}, r.GetEntries())
@@ -311,7 +310,6 @@ func TestControllerLabelBasedRegistration(t *testing.T) {
 			Selectors: []*types.Selector{
 				{Type: "k8s", Value: "ns:NAMESPACE"},
 				{Type: "k8s", Value: "pod-name:PODNAME"},
-				{Type: "k8s", Value: "image-signature-subject:wra@cesar.org.br"},
 			},
 		},
 	}, r.GetEntries())
@@ -443,7 +441,6 @@ func TestControllerAnnotationBasedRegistration(t *testing.T) {
 			Selectors: []*types.Selector{
 				{Type: "k8s", Value: "ns:NAMESPACE"},
 				{Type: "k8s", Value: "pod-name:PODNAME"},
-				{Type: "k8s", Value: "image-signature-subject:wra@cesar.org.br"},
 			},
 		},
 	}, r.GetEntries())
@@ -480,7 +477,6 @@ func TestControllerFederationBasedRegistration(t *testing.T) {
 			Selectors: []*types.Selector{
 				{Type: "k8s", Value: "ns:NAMESPACE"},
 				{Type: "k8s", Value: "pod-name:PODNAME"},
-				{Type: "k8s", Value: "image-signature-subject:wra@cesar.org.br"},
 			},
 		},
 	}, r.GetEntries())
@@ -517,7 +513,6 @@ func TestControllerMultiFederationBasedRegistration(t *testing.T) {
 			Selectors: []*types.Selector{
 				{Type: "k8s", Value: "ns:NAMESPACE"},
 				{Type: "k8s", Value: "pod-name:PODNAME"},
-				{Type: "k8s", Value: "image-signature-subject:wra@cesar.org.br"},
 			},
 		},
 	}, r.GetEntries())

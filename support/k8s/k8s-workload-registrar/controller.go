@@ -144,20 +144,15 @@ func (c *Controller) createPodEntry(ctx context.Context, pod *corev1.Pod) error 
 	}
 
 	federationDomains := federation.GetFederationDomains(pod)
-	signatures, err := c.sigstore.FetchSignaturePayload("cspiffe/spire-agent:signed", "https://rekor.sigstore.dev")
-	if err != nil {
-		fmt.Println("Error retrieving signature payload: ", err.Error())
-	}
-	selectorOfSignedImage := c.sigstore.ExtractselectorOfSignedImage(signatures)
 
 	if c.c.CheckSignature {
+
 		return c.createEntry(ctx, &types.Entry{
 			ParentId: c.nodeID(),
 			SpiffeId: spiffeID,
 			Selectors: []*types.Selector{
 				namespaceSelector(pod.Namespace),
 				podNameSelector(pod.Name),
-				subjectSelector(selectorOfSignedImage),
 				setTrueSignatureSelector("true"),
 			},
 			FederatesWith: federationDomains,
@@ -170,7 +165,6 @@ func (c *Controller) createPodEntry(ctx context.Context, pod *corev1.Pod) error 
 		Selectors: []*types.Selector{
 			namespaceSelector(pod.Namespace),
 			podNameSelector(pod.Name),
-			subjectSelector(selectorOfSignedImage),
 		},
 		FederatesWith: federationDomains,
 	})
@@ -285,13 +279,6 @@ func podNameSelector(podName string) *types.Selector {
 	return &types.Selector{
 		Type:  "k8s",
 		Value: fmt.Sprintf("pod-name:%s", podName),
-	}
-}
-
-func subjectSelector(selectorValue string) *types.Selector {
-	return &types.Selector{
-		Type:  "k8s",
-		Value: fmt.Sprintf("image-signature-subject:%s", selectorValue),
 	}
 }
 
