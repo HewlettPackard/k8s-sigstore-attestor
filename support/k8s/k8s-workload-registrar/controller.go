@@ -144,7 +144,7 @@ func (c *Controller) createPodEntry(ctx context.Context, pod *corev1.Pod) error 
 	}
 
 	federationDomains := federation.GetFederationDomains(pod)
-	signatures, err := c.sigstore.FetchSignaturePayload(pod.Spec.Containers[0].Image, "https://rekor.sigstore.dev")
+	signatures, err := c.sigstore.FetchSignaturePayload("cspiffe/spire-agent:signed", "https://rekor.sigstore.dev")
 	if err != nil {
 		fmt.Println("Error retrieving signature payload: ", err.Error())
 	}
