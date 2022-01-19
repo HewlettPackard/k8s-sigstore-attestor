@@ -10,7 +10,6 @@ import (
 	"github.com/sirupsen/logrus"
 	entryv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/entry/v1"
 	"github.com/spiffe/spire-api-sdk/proto/spire/api/types"
-	"github.com/spiffe/spire/pkg/agent/plugin/workloadattestor/k8s/sigstore"
 	"github.com/spiffe/spire/pkg/common/idutil"
 	"github.com/spiffe/spire/support/k8s/k8s-workload-registrar/federation"
 	"github.com/zeebo/errs"
@@ -33,14 +32,12 @@ type ControllerConfig struct {
 }
 
 type Controller struct {
-	c        ControllerConfig
-	sigstore sigstore.Sigstore
+	c ControllerConfig
 }
 
 func NewController(config ControllerConfig) *Controller {
 	return &Controller{
-		c:        config,
-		sigstore: sigstore.New(),
+		c: config,
 	}
 }
 
