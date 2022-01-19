@@ -22,14 +22,14 @@ import (
 )
 
 type ControllerConfig struct {
-	Log                logrus.FieldLogger
-	E                  entryv1.EntryClient
-	TrustDomain        string
-	Cluster            string
-	PodLabel           string
-	PodAnnotation      string
-	DisabledNamespaces map[string]bool
-	CheckSignature     bool
+	Log                   logrus.FieldLogger
+	E                     entryv1.EntryClient
+	TrustDomain           string
+	Cluster               string
+	PodLabel              string
+	PodAnnotation         string
+	DisabledNamespaces    map[string]bool
+	CheckSignatureEnabled bool
 }
 
 type Controller struct {
@@ -145,7 +145,7 @@ func (c *Controller) createPodEntry(ctx context.Context, pod *corev1.Pod) error 
 
 	federationDomains := federation.GetFederationDomains(pod)
 
-	if c.c.CheckSignature {
+	if c.c.CheckSignatureEnabled {
 		return c.createEntry(ctx, &types.Entry{
 			ParentId: c.nodeID(),
 			SpiffeId: spiffeID,
