@@ -204,7 +204,6 @@ func (sigstore *Sigstoreimpl) SelectorValuesFromSignature(signature oci.Signatur
 		fmt.Sprintf("image-signature-subject:%s", subject),
 		fmt.Sprintf("image-signature-content:%s", sigContent),
 	}
-
 }
 
 func certSubject(c *x509.Certificate) string {
