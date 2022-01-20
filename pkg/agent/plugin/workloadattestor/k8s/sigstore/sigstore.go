@@ -160,7 +160,7 @@ type BundleSpec struct {
 }
 
 type BundleBody struct {
-	ApiVersion string     `json:"apiVersion"`
+	APIVersion string     `json:"apiVersion"`
 	Kind       string     `json:"kind"`
 	Spec       BundleSpec `json:"spec"`
 }
@@ -178,13 +178,13 @@ func getBundleSignatureContent(bundle *oci.Bundle) (string, error) {
 		return "", err
 	}
 	var bundlebody BundleBody
-	err = json.Unmarshal([]byte(body), &bundlebody)
+	err = json.Unmarshal(body, &bundlebody)
 
 	if err != nil {
 		return "", err
 	}
 
-	if bundlebody.Spec.Signature.Content == ""{
+	if bundlebody.Spec.Signature.Content == "" {
 		return "", errors.New("Bundle payload body has no signature content")
 	}
 
