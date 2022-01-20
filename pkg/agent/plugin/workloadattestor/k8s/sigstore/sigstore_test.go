@@ -437,7 +437,6 @@ func Test_getOnlySubject(t *testing.T) {
 		args args
 		want string
 	}{
-		// TODO: Add test cases.
 		{
 			name: "getOnlySubject",
 			args: args{
@@ -537,7 +536,6 @@ func Test_getImageSubject(t *testing.T) {
 		args args
 		want string
 	}{
-		// TODO: Add test cases.
 		{
 			name: "single image signature",
 			args: args{
