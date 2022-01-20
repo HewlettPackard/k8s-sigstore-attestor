@@ -1109,7 +1109,7 @@ func Test_getBundleSignatureContent(t *testing.T) {
 			args: args{
 				bundle: nil,
 			},
-			want: "",
+			want:    "",
 			wantErr: true,
 		},
 		{
@@ -1121,7 +1121,7 @@ func Test_getBundleSignatureContent(t *testing.T) {
 					},
 				},
 			},
-			want: "",
+			want:    "",
 			wantErr: true,
 		},
 		{
@@ -1133,7 +1133,7 @@ func Test_getBundleSignatureContent(t *testing.T) {
 					},
 				},
 			},
-			want: "",
+			want:    "",
 			wantErr: true,
 		},
 		{
@@ -1145,7 +1145,7 @@ func Test_getBundleSignatureContent(t *testing.T) {
 					},
 				},
 			},
-			want: "",
+			want:    "",
 			wantErr: true,
 		},
 		{
@@ -1157,7 +1157,7 @@ func Test_getBundleSignatureContent(t *testing.T) {
 					},
 				},
 			},
-			want: "",
+			want:    "",
 			wantErr: true,
 		},
 		{
@@ -1169,7 +1169,7 @@ func Test_getBundleSignatureContent(t *testing.T) {
 					},
 				},
 			},
-			want: "",
+			want:    "",
 			wantErr: true,
 		},
 		{
@@ -1181,7 +1181,7 @@ func Test_getBundleSignatureContent(t *testing.T) {
 					},
 				},
 			},
-			want: "MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smA=",
+			want:    "MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smA=",
 			wantErr: false,
 		},
 	}
