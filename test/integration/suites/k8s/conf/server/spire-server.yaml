@@ -162,7 +162,6 @@ metadata:
   name: k8s-workload-registrar
   namespace: spire
 data:
-# For test check_signature_enabled = true added
   k8s-workload-registrar.conf: |
     cert_path = "/run/spire/k8s-workload-registrar/certs/server-cert.pem"
     key_path = "/run/spire/k8s-workload-registrar/secret/server-key.pem"
