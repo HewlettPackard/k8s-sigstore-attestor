@@ -48,8 +48,7 @@ func (sigstore Sigstoreimpl) FetchSignaturePayload(imageName string, rekorURL st
 			message := fmt.Sprint("Error parsing rekor URI: ", err.Error())
 			return nil, errors.New(message)
 		}
-		// TODO: decide if http is allowed
-		if rekorURI.Scheme != "" && rekorURI.Scheme != "http" && rekorURI.Scheme != "https" {
+		if rekorURI.Scheme != "" && rekorURI.Scheme != "https" {
 			return nil, errors.New("Invalid rekor URL Scheme: " + rekorURI.Scheme)
 		}
 		if rekorURI.Host == "" {
@@ -149,12 +148,7 @@ func getImageSubject(verified []oci.Signature) string {
 
 		outputKeys = append(outputKeys, ss)
 	}
-	b, err := json.Marshal(outputKeys)
-	// shouldn't ever happen, since any garbled text would be caught by the unmarshal earlier
-	if err != nil {
-		log.Println("Error generating signature: ", err.Error())
-		return ""
-	}
+	b, _ := json.Marshal(outputKeys)
 
 	subject := getOnlySubject(string(b))
 
