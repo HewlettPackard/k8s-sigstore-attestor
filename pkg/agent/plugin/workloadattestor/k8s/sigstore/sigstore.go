@@ -1,6 +1,7 @@
 package sigstore
 
 import (
+	"bytes"
 	"context"
 	"crypto/x509"
 	"encoding/json"
@@ -11,36 +12,55 @@ import (
 	"regexp"
 
 	"github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/sigstore/cosign/cmd/cosign/cli/fulcio"
 	rekor "github.com/sigstore/rekor/pkg/generated/client"
 
 	"github.com/sigstore/cosign/pkg/cosign"
 	"github.com/sigstore/cosign/pkg/oci"
 	"github.com/sigstore/sigstore/pkg/signature/payload"
+	corev1 "k8s.io/api/core/v1"
 )
 
 type Sigstore interface {
-	FetchSignaturePayload(imageName string, rekorURL string) ([]oci.Signature, error)
-	ExtractselectorOfSignedImage(signatures []oci.Signature) string
+	FetchImageSignatures(imageName string, rekorURL string) ([]oci.Signature, error)
+	SelectorValuesFromSignature(oci.Signature) []string
+	ExtractSelectorsFromSignatures(signatures []oci.Signature) []string
+	SkipImage(status corev1.ContainerStatus) ([]string, error)
+	AddSkippedImage(imageID string, selectors []string)
+	ClearSkipList()
 }
 
 type Sigstoreimpl struct {
-	verifyFunction func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error)
+	verifyFunction           func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error)
+	validateImageRefFunction func(name.Reference) (bool, error)
+	skippedImages            map[string]([]string)
 }
 
 func New() Sigstore {
 	return &Sigstoreimpl{
-		verifyFunction: cosign.VerifyImageSignatures,
+		verifyFunction:           cosign.VerifyImageSignatures,
+		validateImageRefFunction: ValidateImage,
+		skippedImages:            nil,
 	}
 }
 
-// FetchSignaturePayload retrieves the signature payload from the specified image
-func (sigstore Sigstoreimpl) FetchSignaturePayload(imageName string, rekorURL string) ([]oci.Signature, error) {
+// FetchImageSignatures retrieves the signature payload from the specified image
+func (sigstore Sigstoreimpl) FetchImageSignatures(imageName string, rekorURL string) ([]oci.Signature, error) {
 	ref, err := name.ParseReference(imageName)
 	if err != nil {
 		message := fmt.Sprint("Error parsing image reference: ", err.Error())
 		return nil, errors.New(message)
 	}
+
+	_, err = sigstore.validateImageRefFunction(ref)
+	if err != nil {
+		message := fmt.Sprint("Could not validate image reference digest: ", err.Error())
+		log.Println(message)
+		return nil, errors.New(message)
+	}
+
 	co := &cosign.CheckOpts{}
 	if rekorURL != "" {
 		rekorURI, err := url.Parse(rekorURL)
@@ -58,9 +78,6 @@ func (sigstore Sigstoreimpl) FetchSignaturePayload(imageName string, rekorURL st
 	} else {
 		co.RekorClient = rekor.NewHTTPClientWithConfig(nil, rekor.DefaultTransportConfig())
 	}
-	if co.RekorClient == nil {
-		return nil, errors.New("Error creating rekor client")
-	}
 	co.RootCerts = fulcio.GetRoots()
 
 	ctx := context.Background()
@@ -77,80 +94,51 @@ func (sigstore Sigstoreimpl) FetchSignaturePayload(imageName string, rekorURL st
 	return sigs, nil
 }
 
-func (Sigstoreimpl) ExtractselectorOfSignedImage(signatures []oci.Signature) string {
-	var selector string
+func (sigstore Sigstoreimpl) ExtractSelectorsFromSignatures(signatures []oci.Signature) []string {
 	// Payload can be empty if the attestor fails to retrieve it
-	// In a non-strict mode this method should be reached and return
-	// an empty selector
-	if signatures != nil {
-		// verify which subject
-		selector = getImageSubject(signatures)
+	if signatures == nil {
+		return nil
 	}
-
-	// return subject as selector
-	return selector
+	// TODO: add flag for verified stuff?
+	var selectors []string
+	for _, sig := range signatures {
+		// verify which subject
+		sigSelectors := sigstore.SelectorValuesFromSignature(sig)
+		if sigSelectors != nil {
+			selectors = append(selectors, sigSelectors...)
+		}
+	}
+	return selectors
 }
 
-type Subject struct {
-	Subject string `json:"Subject"`
-}
-
-type Optional struct {
-	Optional Subject `json:"optional"`
-}
-
-func getOnlySubject(payload string) string {
-	var selector []Optional
-	err := json.Unmarshal([]byte(payload), &selector)
-
+func getSignatureSubject(signature oci.Signature) string {
+	ss := payload.SimpleContainerImage{}
+	pl, err := signature.Payload()
+	if err != nil {
+		log.Println("Error accessing the payload:", err.Error())
+		return ""
+	}
+	err = json.Unmarshal(pl, &ss)
 	if err != nil {
 		log.Println("Error decoding the payload:", err.Error())
 		return ""
 	}
-
-	re := regexp.MustCompile(`[{}]`) // brackets regex
-
-	if len(selector) > 0 { // if there is a subject
-		subject := fmt.Sprintf("%s", selector[0])  // get the first subject
-		subject = re.ReplaceAllString(subject, "") // remove the brackets
-
-		return subject
+	cert, err := signature.Cert()
+	if err != nil {
+		log.Println("Error accessing the certificate:", err.Error())
+		return ""
 	}
 
-	return ""
-}
-
-func getImageSubject(verified []oci.Signature) string {
-	var outputKeys []payload.SimpleContainerImage
-	for _, vs := range verified {
-		ss := payload.SimpleContainerImage{}
-		pl, err := vs.Payload()
-		if err != nil {
-			log.Println("Error accessing the payload:", err.Error())
-			return ""
+	subject := ""
+	if ss.Optional != nil {
+		subjString := ss.Optional["subject"]
+		if _, ok := subjString.(string); ok {
+			subject = subjString.(string)
 		}
-		err = json.Unmarshal(pl, &ss)
-		if err != nil {
-			log.Println("Error decoding the payload:", err.Error())
-			return ""
-		}
-		cert, err := vs.Cert()
-		if err != nil {
-			log.Println("Error accessing the certificate:", err.Error())
-			return ""
-		}
-		if cert != nil {
-			if ss.Optional == nil {
-				ss.Optional = make(map[string]interface{})
-			}
-			ss.Optional["Subject"] = certSubject(cert)
-		}
-
-		outputKeys = append(outputKeys, ss)
 	}
-	b, _ := json.Marshal(outputKeys)
-
-	subject := getOnlySubject(string(b))
+	if cert != nil {
+		subject = certSubject(cert)
+	}
 
 	return subject
 }
@@ -167,4 +155,61 @@ func certSubject(c *x509.Certificate) string {
 		return re.ReplaceAllString(c.URIs[0].String(), "$email")
 	}
 	return ""
+}
+
+func (sigstore Sigstoreimpl) SkipImage(status corev1.ContainerStatus) ([]string, error) {
+	if sigstore.skippedImages != nil {
+		selectors, ok := sigstore.skippedImages[status.ImageID]
+		if ok {
+			return selectors, nil
+		}
+	}
+	return nil, nil
+}
+
+func (sigstore Sigstoreimpl) SelectorValuesFromSignature(signature oci.Signature) []string {
+	subject := getSignatureSubject(signature)
+
+	if subject != "" {
+		return []string{
+			fmt.Sprintf("image-signature-subject:%s", subject),
+		}
+	} else {
+		return nil
+	}
+}
+
+func (sigstore Sigstoreimpl) AddSkippedImage(imageHash string, selectors []string) {
+	sigstore.skippedImages[imageHash] = selectors
+}
+
+func (sigstore Sigstoreimpl) ClearSkipList() {
+	for k := range sigstore.skippedImages {
+		delete(sigstore.skippedImages, k)
+	}
+}
+
+func ValidateImage(ref name.Reference) (bool, error) {
+	desc, err := remote.Get(ref)
+	if err != nil {
+		return false, err
+	}
+
+	hash, _, err := v1.SHA256(bytes.NewReader(desc.Manifest))
+	if err != nil {
+		return false, err
+	}
+
+	return validateRefDigest(ref, hash.String())
+}
+
+func validateRefDigest(ref name.Reference, digest string) (bool, error) {
+	if dgst, ok := ref.(name.Digest); ok {
+		if dgst.DigestStr() == digest {
+			return true, nil
+		}
+	}
+
+	// do nothing if ref is a Tag
+	return false, nil
 }
