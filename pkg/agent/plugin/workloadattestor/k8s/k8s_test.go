@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -153,6 +154,28 @@ FwOGLt+I3+9beT0vo+pn9Rq0squewFYe3aJbwpkyfP2xOovQCdm4PC8y
 		{Type: "k8s", Value: "sa:default"},
 		{Type: "k8s", Value: "signature-verified:true"},
 	}
+
+	testSigstoreSkippedSelectors = []*common.Selector{
+		{Type: "k8s", Value: "container-image:docker-pullable://localhost/spiffe/blog@sha256:0cfdaced91cb46dd7af48309799a3c351e4ca2d5e1ee9737ca0cbd932cb79898"},
+		{Type: "k8s", Value: "container-image:localhost/spiffe/blog:latest"},
+		{Type: "k8s", Value: "container-name:blog"},
+		{Type: "k8s", Value: "image-signature-subject:sigstore-subject-skipped"},
+		{Type: "k8s", Value: "node-name:k8s-node-1"},
+		{Type: "k8s", Value: "ns:default"},
+		{Type: "k8s", Value: "pod-image-count:2"},
+		{Type: "k8s", Value: "pod-image:docker-pullable://localhost/spiffe/blog@sha256:0cfdaced91cb46dd7af48309799a3c351e4ca2d5e1ee9737ca0cbd932cb79898"},
+		{Type: "k8s", Value: "pod-image:docker-pullable://localhost/spiffe/ghostunnel@sha256:b2fc20676c92a433b9a91f3f4535faddec0c2c3613849ac12f02c1d5cfcd4c3a"},
+		{Type: "k8s", Value: "pod-image:localhost/spiffe/blog:latest"},
+		{Type: "k8s", Value: "pod-image:localhost/spiffe/ghostunnel:latest"},
+		{Type: "k8s", Value: "pod-init-image-count:0"},
+		{Type: "k8s", Value: "pod-label:k8s-app:blog"},
+		{Type: "k8s", Value: "pod-label:version:v0"},
+		{Type: "k8s", Value: "pod-name:blog-24ck7"},
+		{Type: "k8s", Value: "pod-owner-uid:ReplicationController:2c401175-b29f-11e7-9350-020968147796"},
+		{Type: "k8s", Value: "pod-owner:ReplicationController:blog"},
+		{Type: "k8s", Value: "pod-uid:2c48913c-b29f-11e7-9350-020968147796"},
+		{Type: "k8s", Value: "sa:default"},
+	}
 )
 
 type attestResult struct {
@@ -217,6 +240,25 @@ func (s *Suite) TestAttestWithSigstoreSignatures() {
 	p := s.loadInsecurePlugin()
 	s.requireAttestSuccessWithPodandSignature(p)
 	s.setSigstoreSelectors(nil)
+}
+
+func (s *Suite) TestAttestWithSigstoreSkippedImage() {
+	s.startInsecureKubelet()
+	// Skip the image
+	s.setSigstoreSkipSigs(true)
+	s.setSigstoreSkippedSigs([]string{"image-signature-subject:sigstore-subject-skipped"})
+	p := s.loadInsecurePlugin()
+	s.requireAttestSuccessWithPodandSkippedImage(p)
+	s.setSigstoreSkipSigs(false)
+	s.setSigstoreSkippedSigs(nil)
+}
+
+func (s *Suite) TestAttestWithFailedSigstoreSignatures() {
+	s.setSigstoreReturnError(errors.New("sigstore error"))
+	s.startInsecureKubelet()
+	p := s.loadInsecurePlugin()
+	s.requireAttestSuccessWithPod(p)
+	s.setSigstoreReturnError(nil)
 }
 
 func (s *Suite) TestAttestWithPidInKindPod() {
@@ -394,14 +436,15 @@ func (s *Suite) TestConfigure() {
 	s.writeCert("some-other-ca", s.kubeletCert)
 
 	type config struct {
-		Insecure          bool
-		VerifyKubelet     bool
-		HasNodeName       bool
-		Token             string
-		KubeletURL        string
-		MaxPollAttempts   int
-		PollRetryInterval time.Duration
-		ReloadInterval    time.Duration
+		Insecure             bool
+		VerifyKubelet        bool
+		HasNodeName          bool
+		Token                string
+		KubeletURL           string
+		MaxPollAttempts      int
+		PollRetryInterval    time.Duration
+		ReloadInterval       time.Duration
+		SkippedImageSubjects map[string][]string
 	}
 
 	testCases := []struct {
@@ -602,6 +645,27 @@ func (s *Suite) TestConfigure() {
 			`,
 			err: "unable to load private key",
 		},
+		{
+			name: "secure defaults with skipped images for sigstore",
+			hcl: `
+				skip_signature_verification_image_list = {
+					"sha:image1hash" = ["skipped-image1-selector1", "skipped-image1-selector2"]
+					"sha:image2hash" = ["skipped-image2-selector1", "skipped-image2-selector2"]
+				}
+			`,
+			config: &config{
+				VerifyKubelet:     true,
+				Token:             "default-token",
+				KubeletURL:        "https://127.0.0.1:10250",
+				MaxPollAttempts:   defaultMaxPollAttempts,
+				PollRetryInterval: defaultPollRetryInterval,
+				ReloadInterval:    defaultReloadInterval,
+				SkippedImageSubjects: map[string][]string{
+					"sha:image1hash": {"skipped-image1-selector1", "skipped-image1-selector2"},
+					"sha:image2hash": {"skipped-image2-selector1", "skipped-image2-selector2"},
+				},
+			},
+		},
 	}
 
 	for _, testCase := range testCases {
@@ -648,6 +712,7 @@ func (s *Suite) TestConfigure() {
 			assert.Equal(t, testCase.config.MaxPollAttempts, c.MaxPollAttempts)
 			assert.Equal(t, testCase.config.PollRetryInterval, c.PollRetryInterval)
 			assert.Equal(t, testCase.config.ReloadInterval, c.ReloadInterval)
+			assert.Equal(t, testCase.config.SkippedImageSubjects, c.SkippedImageSubjects)
 		})
 	}
 }
@@ -773,21 +838,21 @@ func (s *Suite) setSigstoreSelectors(selectors []string) {
 	}
 }
 
-// func (s *Suite) setSigstoreSigs(sigs []oci.Signature) {
-// 	s.sigstoreSigs = sigs
-// }
+func (s *Suite) setSigstoreSigs(sigs []oci.Signature) {
+	s.sigstoreSigs = sigs
+}
 
-// func (s *Suite) setSigstoreSkipSigs(skip bool) {
-// 	s.sigstoreSkipSigs = skip
-// }
+func (s *Suite) setSigstoreSkipSigs(skip bool) {
+	s.sigstoreSkipSigs = skip
+}
 
-// func (s *Suite) setSigstoreSkippedSigs(selectors []string) {
-// 	s.sigstoreSkippedSigSelectors = selectors
-// }
+func (s *Suite) setSigstoreSkippedSigs(selectors []string) {
+	s.sigstoreSkippedSigSelectors = selectors
+}
 
-// func (s *Suite) setSigstoreReturnError(err error) {
-// 	s.sigstoreReturnError = err
-// }
+func (s *Suite) setSigstoreReturnError(err error) {
+	s.sigstoreReturnError = err
+}
 
 func (s *Suite) writeFile(path, data string) {
 	realPath := filepath.Join(s.dir, path)
@@ -952,6 +1017,12 @@ func (s *Suite) requireAttestSuccessWithPodandSignature(p workloadattestor.Workl
 	s.addPodListResponse(podListFilePath)
 	s.addCgroupsResponse(cgPidInPodFilePath)
 	s.requireAttestSuccess(p, testSigstoreSelectors)
+}
+
+func (s *Suite) requireAttestSuccessWithPodandSkippedImage(p workloadattestor.WorkloadAttestor) {
+	s.addPodListResponse(podListFilePath)
+	s.addCgroupsResponse(cgPidInPodFilePath)
+	s.requireAttestSuccess(p, testSigstoreSkippedSelectors)
 }
 
 func (s *Suite) requireAttestSuccessWithKindPod(p workloadattestor.WorkloadAttestor) {
