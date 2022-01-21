@@ -120,7 +120,7 @@ type HCLConfig struct {
 	// RekorURL is the URL for the rekor server to use to verify signatures and public keys
 	RekorURL string `hcl:"rekor_url"`
 
-	//SkippedImageSubjects is a map containing selectors for images that should skip sigstore verification
+	// SkippedImageSubjects is a map containing selectors for images that should skip sigstore verification
 	SkippedImageSubjects map[string][]string `hcl:"skipped_image_subjects"`
 }
 

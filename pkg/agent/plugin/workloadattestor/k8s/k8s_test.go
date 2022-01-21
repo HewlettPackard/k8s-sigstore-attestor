@@ -724,9 +724,8 @@ func (s *SigstoreMock) SelectorValuesFromSignature(signatures oci.Signature) []s
 func (s *SigstoreMock) SkipImage(image corev1.ContainerStatus) ([]string, error) {
 	if s.skipSigs {
 		return s.skippedSigSelectors, s.returnError
-	} else {
-		return nil, s.returnError
 	}
+	return nil, s.returnError
 }
 
 func (s *SigstoreMock) AddSkippedImage(string, []string) {
@@ -773,21 +772,21 @@ func (s *Suite) setSigstoreSelectors(selectors []string) {
 	}
 }
 
-func (s *Suite) setSigstoreSigs(sigs []oci.Signature) {
-	s.sigstoreSigs = sigs
-}
+// func (s *Suite) setSigstoreSigs(sigs []oci.Signature) {
+// 	s.sigstoreSigs = sigs
+// }
 
-func (s *Suite) setSigstoreSkipSigs(skip bool) {
-	s.sigstoreSkipSigs = skip
-}
+// func (s *Suite) setSigstoreSkipSigs(skip bool) {
+// 	s.sigstoreSkipSigs = skip
+// }
 
-func (s *Suite) setSigstoreSkippedSigs(selectors []string) {
-	s.sigstoreSkippedSigSelectors = selectors
-}
+// func (s *Suite) setSigstoreSkippedSigs(selectors []string) {
+// 	s.sigstoreSkippedSigSelectors = selectors
+// }
 
-func (s *Suite) setSigstoreReturnError(err error) {
-	s.sigstoreReturnError = err
-}
+// func (s *Suite) setSigstoreReturnError(err error) {
+// 	s.sigstoreReturnError = err
+// }
 
 func (s *Suite) writeFile(path, data string) {
 	realPath := filepath.Join(s.dir, path)

@@ -177,9 +177,8 @@ func (sigstore Sigstoreimpl) SelectorValuesFromSignature(signature oci.Signature
 		return []string{
 			fmt.Sprintf("image-signature-subject:%s", subject),
 		}
-	} else {
-		return nil
 	}
+	return nil
 }
 
 func (sigstore Sigstoreimpl) AddSkippedImage(imageHash string, selectors []string) {
