@@ -227,9 +227,8 @@ func validateRefDigest(ref name.Reference, digest string) (bool, error) {
 	if dgst, ok := ref.(name.Digest); ok {
 		if dgst.DigestStr() == digest {
 			return true, nil
-		} else {
-			return false, fmt.Errorf("Digest %s does not match %s", digest, dgst.DigestStr())
 		}
+		return false, fmt.Errorf("Digest %s does not match %s", digest, dgst.DigestStr())
 	}
 	return false, fmt.Errorf("Reference %s is not a digest", ref.String())
 }
