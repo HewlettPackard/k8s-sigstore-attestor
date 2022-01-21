@@ -31,6 +31,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
+	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -175,8 +176,12 @@ type Suite struct {
 	server      *httptest.Server
 	kubeletCert *x509.Certificate
 	clientCert  *x509.Certificate
-	selector    string
-	sigs        []oci.Signature
+
+	sigstoreSelectors           []string
+	sigstoreSigs                []oci.Signature
+	sigstoreSkipSigs            bool
+	sigstoreSkippedSigSelectors []string
+	sigstoreReturnError         error
 }
 
 func (s *Suite) SetupTest() {
@@ -189,8 +194,8 @@ func (s *Suite) SetupTest() {
 	s.podList = nil
 	s.env = map[string]string{}
 
-	s.selector = ""
-	s.sigs = nil
+	s.sigstoreSelectors = nil
+	s.sigstoreSigs = nil
 }
 
 func (s *Suite) TearDownTest() {
@@ -207,10 +212,10 @@ func (s *Suite) TestAttestWithPidInPod() {
 
 func (s *Suite) TestAttestWithSigstoreSignatures() {
 	s.startInsecureKubelet()
-	s.setSigstoreSelector("sigstore-subject")
+	s.setSigstoreSelectors([]string{"image-signature-subject:sigstore-subject"})
 	p := s.loadInsecurePlugin()
 	s.requireAttestSuccessWithPodandSignature(p)
-	s.setSigstoreSelector("")
+	s.setSigstoreSelectors(nil)
 }
 
 func (s *Suite) TestAttestWithPidInKindPod() {
@@ -678,24 +683,55 @@ func (signature) Bundle() (*oci.Bundle, error) {
 }
 
 type SigstoreMock struct {
-	selector string
-	sigs     []oci.Signature
+	selectors []string
+
+	sigs                []oci.Signature
+	skipSigs            bool
+	skippedSigSelectors []string
+	returnError         error
 }
 
-func (s *SigstoreMock) SetSelector(selector string) {
-	s.selector = selector
+func (s *SigstoreMock) SetSelector(selectors []string) {
+	s.selectors = selectors
 }
 
 func (s *SigstoreMock) SetSig(sigs []oci.Signature) {
 	s.sigs = sigs
 }
 
-func (s *SigstoreMock) FetchSignaturePayload(imageName string, rekorURL string) ([]oci.Signature, error) {
-	return s.sigs, nil
+func (s *SigstoreMock) SetSkipSigs(allow bool) {
+	s.skipSigs = allow
 }
 
-func (s *SigstoreMock) ExtractselectorOfSignedImage(signatures []oci.Signature) string {
-	return s.selector
+func (s *SigstoreMock) SetSkippedSigSelectors(selectors []string) {
+	s.skippedSigSelectors = selectors
+}
+func (s *SigstoreMock) SetReturnError(err error) {
+	s.returnError = err
+}
+func (s *SigstoreMock) FetchImageSignatures(imageName string, rekorURL string) ([]oci.Signature, error) {
+	return s.sigs, s.returnError
+}
+
+func (s *SigstoreMock) ExtractSelectorsFromSignatures(signatures []oci.Signature) []string {
+	return s.selectors
+}
+
+func (s *SigstoreMock) SelectorValuesFromSignature(signatures oci.Signature) []string {
+	return s.selectors
+}
+
+func (s *SigstoreMock) SkipImage(image corev1.ContainerStatus) ([]string, error) {
+	if s.skipSigs {
+		return s.skippedSigSelectors, s.returnError
+	} else {
+		return nil, s.returnError
+	}
+}
+
+func (s *SigstoreMock) AddSkippedImage(string, []string) {
+}
+func (s *SigstoreMock) ClearSkipList() {
 }
 
 func (s *Suite) newPlugin() *Plugin {
@@ -706,8 +742,11 @@ func (s *Suite) newPlugin() *Plugin {
 		return s.env[key]
 	}
 	p.sigstore = &SigstoreMock{
-		selector: s.selector,
-		sigs:     s.sigs,
+		selectors:           s.sigstoreSelectors,
+		sigs:                s.sigstoreSigs,
+		skipSigs:            s.sigstoreSkipSigs,
+		skippedSigSelectors: s.sigstoreSkippedSigSelectors,
+		returnError:         s.sigstoreReturnError,
 	}
 
 	return p
@@ -720,18 +759,34 @@ func (s *Suite) setServer(server *httptest.Server) {
 	s.server = server
 }
 
-func (s *Suite) setSigstoreSelector(selector string) {
-	s.selector = selector
-	if s.selector == "" {
-		s.sigs = nil
+func (s *Suite) setSigstoreSelectors(selectors []string) {
+	s.sigstoreSelectors = selectors
+	if s.sigstoreSelectors == nil {
+		s.sigstoreSigs = nil
 	} else {
-		s.sigs = []oci.Signature{
+		s.sigstoreSigs = []oci.Signature{
 			signature{
 				payload: []byte("payload"),
 				cert:    &x509.Certificate{},
 			},
 		}
 	}
+}
+
+func (s *Suite) setSigstoreSigs(sigs []oci.Signature) {
+	s.sigstoreSigs = sigs
+}
+
+func (s *Suite) setSigstoreSkipSigs(skip bool) {
+	s.sigstoreSkipSigs = skip
+}
+
+func (s *Suite) setSigstoreSkippedSigs(selectors []string) {
+	s.sigstoreSkippedSigSelectors = selectors
+}
+
+func (s *Suite) setSigstoreReturnError(err error) {
+	s.sigstoreReturnError = err
 }
 
 func (s *Suite) writeFile(path, data string) {
