@@ -745,6 +745,30 @@ func TestSigstoreimpl_SkipImage(t *testing.T) {
 			want:    nil,
 			wantErr: false,
 		},
+		{
+			name: "image has no imageID",
+			fields: fields{
+				verifyFunction: nil,
+				skippedImages: map[string][]string{
+					"sha256:sampleimagehash": {
+						"image-signature-subject:sampleimage",
+					},
+					"sha256:sampleimagehash2": {
+						"image-signature-subject:sampleimage2",
+					},
+					"sha256:sampleimagehash3": {
+						"image-signature-subject:sampleimage3",
+					},
+				},
+			},
+			args: args{
+				status: corev1.ContainerStatus{
+					ImageID: "",
+				},
+			},
+			want:    nil,
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -817,6 +841,99 @@ func Test_getSignatureSubject(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := getSignatureSubject(tt.args.signature); got != tt.want {
 				t.Errorf("getSignatureSubject() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSigstoreimpl_AddSkippedImage(t *testing.T) {
+	type fields struct {
+		verifyFunction           func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error)
+		validateImageRefFunction func(name.Reference) (bool, error)
+		skippedImages            map[string]([]string)
+	}
+	type args struct {
+		imageID   string
+		selectors []string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   map[string][]string
+	}{
+		{
+			name: "add skipped image to empty map",
+			fields: fields{
+				verifyFunction: func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
+					return []oci.Signature{
+						signature{
+							payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "some digest"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 2","key3": "value 3"}}`),
+						},
+					}, true, nil
+				},
+				validateImageRefFunction: func(name.Reference) (bool, error) {
+					return true, nil
+				},
+				skippedImages: map[string][]string{},
+			},
+			args: args{
+				imageID: "sha256:sampleimagehash",
+				selectors: []string{
+					"image-signature-subject:sampleimage",
+				},
+			},
+			want: map[string][]string{
+				"sha256:sampleimagehash": {
+					"image-signature-subject:sampleimage",
+				},
+			},
+		},
+		{
+			name: "add skipped image",
+			fields: fields{
+				verifyFunction: func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
+					return []oci.Signature{
+						signature{
+							payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "some digest"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 2","key3": "value 3"}}`),
+						},
+					}, true, nil
+				},
+				validateImageRefFunction: func(name.Reference) (bool, error) {
+					return true, nil
+				},
+				skippedImages: map[string]([]string){
+					"sha256:sampleimagehash1": {
+						"image-signature-subject:sampleimage1",
+					},
+				},
+			},
+			args: args{
+				imageID: "sha256:sampleimagehash",
+				selectors: []string{
+					"image-signature-subject:sampleimage",
+				},
+			},
+			want: map[string][]string{
+				"sha256:sampleimagehash": {
+					"image-signature-subject:sampleimage",
+				},
+				"sha256:sampleimagehash1": {
+					"image-signature-subject:sampleimage1",
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sigstore := Sigstoreimpl{
+				verifyFunction:           tt.fields.verifyFunction,
+				validateImageRefFunction: tt.fields.validateImageRefFunction,
+				skippedImages:            tt.fields.skippedImages,
+			}
+			sigstore.AddSkippedImage(tt.args.imageID, tt.args.selectors)
+			if !reflect.DeepEqual(sigstore.skippedImages, tt.want) {
+				t.Errorf("sigstore.skippedImages = %v, want %v", sigstore.skippedImages, tt.want)
 			}
 		})
 	}

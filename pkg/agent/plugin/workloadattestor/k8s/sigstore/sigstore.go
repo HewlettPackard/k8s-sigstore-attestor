@@ -46,8 +46,9 @@ func New() Sigstore {
 	}
 }
 
-// FetchImageSignatures retrieves the signature payload from the specified image
-func (sigstore Sigstoreimpl) FetchImageSignatures(imageName string, rekorURL string) ([]oci.Signature, error) {
+// FetchImageSignatures retrieves signatures for specified image via cosign, using the specified rekor server.
+// Returns a list of verified signatures, and an error if any.
+func (sigstore *Sigstoreimpl) FetchImageSignatures(imageName string, rekorURL string) ([]oci.Signature, error) {
 	ref, err := name.ParseReference(imageName)
 	if err != nil {
 		message := fmt.Sprint("Error parsing image reference: ", err.Error())
@@ -94,7 +95,9 @@ func (sigstore Sigstoreimpl) FetchImageSignatures(imageName string, rekorURL str
 	return sigs, nil
 }
 
-func (sigstore Sigstoreimpl) ExtractSelectorsFromSignatures(signatures []oci.Signature) []string {
+// ExtractSelectorsFromSignatures extracts selectors from a list of image signatures.
+// returns a list of selector strings.
+func (sigstore *Sigstoreimpl) ExtractSelectorsFromSignatures(signatures []oci.Signature) []string {
 	// Payload can be empty if the attestor fails to retrieve it
 	if signatures == nil {
 		return nil
@@ -146,6 +149,19 @@ func getSignatureSubject(signature oci.Signature) string {
 	return subject
 }
 
+// SelectorValuesFromSignature extracts selectors from a signature.
+// returns a list of selectors.
+func (sigstore *Sigstoreimpl) SelectorValuesFromSignature(signature oci.Signature) []string {
+	subject := getSignatureSubject(signature)
+
+	if subject != "" {
+		return []string{
+			fmt.Sprintf("image-signature-subject:%s", subject),
+		}
+	}
+	return nil
+}
+
 func certSubject(c *x509.Certificate) string {
 	switch {
 	case c == nil:
@@ -160,35 +176,36 @@ func certSubject(c *x509.Certificate) string {
 	return ""
 }
 
-func (sigstore Sigstoreimpl) SkipImage(status corev1.ContainerStatus) ([]string, error) {
-	if sigstore.skippedImages != nil {
-		selectors, ok := sigstore.skippedImages[status.ImageID]
-		if ok {
-			return selectors, nil
-		}
+// SkipImage checks the skip list for the image ID in the container status.
+// If the image ID is found in the skip list, it returns true.
+// If the image ID is not found in the skip list, it returns false.
+func (sigstore *Sigstoreimpl) SkipImage(status corev1.ContainerStatus) ([]string, error) {
+	if sigstore.skippedImages == nil {
+		return nil, nil
+	}
+	if status.ImageID == "" {
+		return nil, errors.New("Container status does not contain an image ID")
+	}
+	if selectors, ok := sigstore.skippedImages[status.ImageID]; ok {
+		return selectors, nil
 	}
 	return nil, nil
 }
 
-func (sigstore Sigstoreimpl) SelectorValuesFromSignature(signature oci.Signature) []string {
-	subject := getSignatureSubject(signature)
-
-	if subject != "" {
-		return []string{
-			fmt.Sprintf("image-signature-subject:%s", subject),
-		}
+// AddSkippedImage adds the image ID and selectors to the skip list.
+func (sigstore *Sigstoreimpl) AddSkippedImage(imageID string, selectors []string) {
+	if sigstore.skippedImages == nil {
+		sigstore.skippedImages = make(map[string]([]string))
 	}
-	return nil
+	sigstore.skippedImages[imageID] = selectors
 }
 
-func (sigstore Sigstoreimpl) AddSkippedImage(imageHash string, selectors []string) {
-	sigstore.skippedImages[imageHash] = selectors
-}
-
-func (sigstore Sigstoreimpl) ClearSkipList() {
+// ClearSkipList clears the skip list.
+func (sigstore *Sigstoreimpl) ClearSkipList() {
 	for k := range sigstore.skippedImages {
 		delete(sigstore.skippedImages, k)
 	}
+	sigstore.skippedImages = nil
 }
 
 func ValidateImage(ref name.Reference) (bool, error) {
