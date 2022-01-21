@@ -27,15 +27,15 @@ type Sigstore interface {
 	FetchImageSignatures(imageName string, rekorURL string) ([]oci.Signature, error)
 	SelectorValuesFromSignature(oci.Signature) []string
 	ExtractSelectorsFromSignatures(signatures []oci.Signature) []string
-	SkipImage(status corev1.ContainerStatus) ([]string, error)
-	AddSkippedImage(imageID string, selectors []string)
+	SkipImage(status corev1.ContainerStatus) (bool, error)
+	AddSkippedImage(imageID string)
 	ClearSkipList()
 }
 
 type Sigstoreimpl struct {
 	verifyFunction             func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error)
 	fetchImageManifestFunction func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error)
-	skippedImages              map[string]([]string)
+	skippedImages              map[string]bool
 }
 
 func New() Sigstore {
@@ -178,25 +178,25 @@ func certSubject(c *x509.Certificate) string {
 // SkipImage checks the skip list for the image ID in the container status.
 // If the image ID is found in the skip list, it returns true.
 // If the image ID is not found in the skip list, it returns false.
-func (sigstore *Sigstoreimpl) SkipImage(status corev1.ContainerStatus) ([]string, error) {
+func (sigstore *Sigstoreimpl) SkipImage(status corev1.ContainerStatus) (bool, error) {
 	if sigstore.skippedImages == nil {
-		return nil, nil
+		return false, nil
 	}
 	if status.ImageID == "" {
-		return nil, errors.New("Container status does not contain an image ID")
+		return false, errors.New("Container status does not contain an image ID")
 	}
-	if selectors, ok := sigstore.skippedImages[status.ImageID]; ok {
-		return selectors, nil
+	if _, ok := sigstore.skippedImages[status.ImageID]; ok {
+		return true, nil
 	}
-	return nil, nil
+	return false, nil
 }
 
 // AddSkippedImage adds the image ID and selectors to the skip list.
-func (sigstore *Sigstoreimpl) AddSkippedImage(imageID string, selectors []string) {
+func (sigstore *Sigstoreimpl) AddSkippedImage(imageID string) {
 	if sigstore.skippedImages == nil {
-		sigstore.skippedImages = make(map[string]([]string))
+		sigstore.skippedImages = make(map[string]bool)
 	}
-	sigstore.skippedImages[imageID] = selectors
+	sigstore.skippedImages[imageID] = true
 }
 
 // ClearSkipList clears the skip list.

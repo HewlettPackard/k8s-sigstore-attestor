@@ -121,7 +121,7 @@ type HCLConfig struct {
 	RekorURL string `hcl:"rekor_url"`
 
 	// SkippedImageSubjects is a map containing selectors for images that should skip sigstore verification
-	SkippedImageSubjects map[string][]string `hcl:"skip_signature_verification_image_list"`
+	SkippedImageSubjects []string `hcl:"skip_signature_verification_image_list"`
 }
 
 // k8sConfig holds the configuration distilled from HCL
@@ -139,7 +139,7 @@ type k8sConfig struct {
 	ReloadInterval          time.Duration
 	RekorURL                string
 
-	SkippedImageSubjects map[string][]string
+	SkippedImageSubjects []string
 
 	Client     *kubeletClient
 	LastReload time.Time
@@ -208,8 +208,8 @@ func (p *Plugin) Attest(ctx context.Context, req *workloadattestorv1.AttestReque
 			case containerInPod:
 				selectors := getSelectorValuesFromPodInfo(&item, status)
 				skipImageSelectors, _ := p.sigstore.SkipImage(*status)
-				if skipImageSelectors != nil {
-					selectors = append(selectors, skipImageSelectors...)
+				if skipImageSelectors {
+					selectors = append(selectors, "signature-verified:true")
 				} else {
 					signatures, err := p.sigstore.FetchImageSignatures(status.ImageID, p.config.RekorURL)
 					if err != nil {
@@ -323,8 +323,8 @@ func (p *Plugin) Configure(ctx context.Context, req *configv1.ConfigureRequest) 
 
 	p.sigstore.ClearSkipList()
 	if c.SkippedImageSubjects != nil {
-		for imageID, selectors := range c.SkippedImageSubjects {
-			p.sigstore.AddSkippedImage(imageID, selectors)
+		for _, imageID := range c.SkippedImageSubjects {
+			p.sigstore.AddSkippedImage(imageID)
 		}
 	}
 

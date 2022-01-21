@@ -159,7 +159,6 @@ FwOGLt+I3+9beT0vo+pn9Rq0squewFYe3aJbwpkyfP2xOovQCdm4PC8y
 		{Type: "k8s", Value: "container-image:docker-pullable://localhost/spiffe/blog@sha256:0cfdaced91cb46dd7af48309799a3c351e4ca2d5e1ee9737ca0cbd932cb79898"},
 		{Type: "k8s", Value: "container-image:localhost/spiffe/blog:latest"},
 		{Type: "k8s", Value: "container-name:blog"},
-		{Type: "k8s", Value: "image-signature-subject:sigstore-subject-skipped"},
 		{Type: "k8s", Value: "node-name:k8s-node-1"},
 		{Type: "k8s", Value: "ns:default"},
 		{Type: "k8s", Value: "pod-image-count:2"},
@@ -175,6 +174,7 @@ FwOGLt+I3+9beT0vo+pn9Rq0squewFYe3aJbwpkyfP2xOovQCdm4PC8y
 		{Type: "k8s", Value: "pod-owner:ReplicationController:blog"},
 		{Type: "k8s", Value: "pod-uid:2c48913c-b29f-11e7-9350-020968147796"},
 		{Type: "k8s", Value: "sa:default"},
+		{Type: "k8s", Value: "signature-verified:true"},
 	}
 )
 
@@ -444,7 +444,7 @@ func (s *Suite) TestConfigure() {
 		MaxPollAttempts      int
 		PollRetryInterval    time.Duration
 		ReloadInterval       time.Duration
-		SkippedImageSubjects map[string][]string
+		SkippedImageSubjects []string
 	}
 
 	testCases := []struct {
@@ -648,10 +648,7 @@ func (s *Suite) TestConfigure() {
 		{
 			name: "secure defaults with skipped images for sigstore",
 			hcl: `
-				skip_signature_verification_image_list = {
-					"sha:image1hash" = ["skipped-image1-selector1", "skipped-image1-selector2"]
-					"sha:image2hash" = ["skipped-image2-selector1", "skipped-image2-selector2"]
-				}
+				skip_signature_verification_image_list = ["sha:image1hash","sha:image2hash"]
 			`,
 			config: &config{
 				VerifyKubelet:     true,
@@ -660,9 +657,9 @@ func (s *Suite) TestConfigure() {
 				MaxPollAttempts:   defaultMaxPollAttempts,
 				PollRetryInterval: defaultPollRetryInterval,
 				ReloadInterval:    defaultReloadInterval,
-				SkippedImageSubjects: map[string][]string{
-					"sha:image1hash": {"skipped-image1-selector1", "skipped-image1-selector2"},
-					"sha:image2hash": {"skipped-image2-selector1", "skipped-image2-selector2"},
+				SkippedImageSubjects: []string{
+					"sha:image1hash",
+					"sha:image2hash",
 				},
 			},
 		},
@@ -787,14 +784,11 @@ func (s *SigstoreMock) SelectorValuesFromSignature(signatures oci.Signature) []s
 	return s.selectors
 }
 
-func (s *SigstoreMock) SkipImage(image corev1.ContainerStatus) ([]string, error) {
-	if s.skipSigs {
-		return s.skippedSigSelectors, s.returnError
-	}
-	return nil, s.returnError
+func (s *SigstoreMock) SkipImage(image corev1.ContainerStatus) (bool, error) {
+	return s.skipSigs, s.returnError
 }
 
-func (s *SigstoreMock) AddSkippedImage(string, []string) {
+func (s *SigstoreMock) AddSkippedImage(string) {
 }
 func (s *SigstoreMock) ClearSkipList() {
 }

@@ -678,7 +678,7 @@ func Test_certSubject(t *testing.T) {
 func TestSigstoreimpl_SkipImage(t *testing.T) {
 	type fields struct {
 		verifyFunction             func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error)
-		skippedImages              map[string]([]string)
+		skippedImages              map[string](bool)
 		fetchImageManifestFunction func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error)
 	}
 	type args struct {
@@ -688,17 +688,15 @@ func TestSigstoreimpl_SkipImage(t *testing.T) {
 		name    string
 		fields  fields
 		args    args
-		want    []string
+		want    bool
 		wantErr bool
 	}{
 		{
 			name: "skipping only image in list",
 			fields: fields{
 				verifyFunction: nil,
-				skippedImages: map[string][]string{
-					"sha256:sampleimagehash": {
-						"image-signature-subject:sampleimage",
-					},
+				skippedImages: map[string]bool{
+					"sha256:sampleimagehash": true,
 				},
 				fetchImageManifestFunction: nil,
 			},
@@ -707,23 +705,17 @@ func TestSigstoreimpl_SkipImage(t *testing.T) {
 					ImageID: "sha256:sampleimagehash",
 				},
 			},
-			want:    []string{"image-signature-subject:sampleimage"},
+			want:    true,
 			wantErr: false,
 		},
 		{
 			name: "skipping image in list",
 			fields: fields{
 				verifyFunction: nil,
-				skippedImages: map[string][]string{
-					"sha256:sampleimagehash": {
-						"image-signature-subject:sampleimage",
-					},
-					"sha256:sampleimagehash2": {
-						"image-signature-subject:sampleimage2",
-					},
-					"sha256:sampleimagehash3": {
-						"image-signature-subject:sampleimage3",
-					},
+				skippedImages: map[string]bool{
+					"sha256:sampleimagehash":  true,
+					"sha256:sampleimagehash2": true,
+					"sha256:sampleimagehash3": true,
 				},
 			},
 			args: args{
@@ -731,20 +723,16 @@ func TestSigstoreimpl_SkipImage(t *testing.T) {
 					ImageID: "sha256:sampleimagehash2",
 				},
 			},
-			want:    []string{"image-signature-subject:sampleimage2"},
+			want:    true,
 			wantErr: false,
 		},
 		{
 			name: "image not in list",
 			fields: fields{
 				verifyFunction: nil,
-				skippedImages: map[string][]string{
-					"sha256:sampleimagehash": {
-						"image-signature-subject:sampleimage",
-					},
-					"sha256:sampleimagehash3": {
-						"image-signature-subject:sampleimage3",
-					},
+				skippedImages: map[string]bool{
+					"sha256:sampleimagehash":  true,
+					"sha256:sampleimagehash3": true,
 				},
 			},
 			args: args{
@@ -752,7 +740,7 @@ func TestSigstoreimpl_SkipImage(t *testing.T) {
 					ImageID: "sha256:sampleimagehash2",
 				},
 			},
-			want:    nil,
+			want:    false,
 			wantErr: false,
 		},
 		{
@@ -766,23 +754,17 @@ func TestSigstoreimpl_SkipImage(t *testing.T) {
 					ImageID: "sha256:sampleimagehash",
 				},
 			},
-			want:    nil,
+			want:    false,
 			wantErr: false,
 		},
 		{
 			name: "image has no imageID",
 			fields: fields{
 				verifyFunction: nil,
-				skippedImages: map[string][]string{
-					"sha256:sampleimagehash": {
-						"image-signature-subject:sampleimage",
-					},
-					"sha256:sampleimagehash2": {
-						"image-signature-subject:sampleimage2",
-					},
-					"sha256:sampleimagehash3": {
-						"image-signature-subject:sampleimage3",
-					},
+				skippedImages: map[string]bool{
+					"sha256:sampleimagehash":  true,
+					"sha256:sampleimagehash2": true,
+					"sha256:sampleimagehash3": true,
 				},
 			},
 			args: args{
@@ -790,7 +772,7 @@ func TestSigstoreimpl_SkipImage(t *testing.T) {
 					ImageID: "",
 				},
 			},
-			want:    nil,
+			want:    false,
 			wantErr: true,
 		},
 	}
@@ -874,81 +856,46 @@ func TestSigstoreimpl_AddSkippedImage(t *testing.T) {
 	type fields struct {
 		verifyFunction             func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error)
 		fetchImageManifestFunction func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error)
-		skippedImages              map[string]([]string)
+		skippedImages              map[string]bool
 	}
 	type args struct {
-		imageID   string
-		selectors []string
+		imageID string
 	}
 	tests := []struct {
 		name   string
 		fields fields
 		args   args
-		want   map[string][]string
+		want   map[string]bool
 	}{
 		{
 			name: "add skipped image to empty map",
 			fields: fields{
-				verifyFunction: func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
-					return []oci.Signature{
-						signature{
-							payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "some digest"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 2","key3": "value 3"}}`),
-						},
-					}, true, nil
-				},
-				fetchImageManifestFunction: func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error) {
-					return &remote.Descriptor{
-						Manifest: []byte("sometext"),
-					}, nil
-				},
-				skippedImages: nil,
+				verifyFunction:             nil,
+				fetchImageManifestFunction: nil,
+				skippedImages:              nil,
 			},
 			args: args{
 				imageID: "sha256:sampleimagehash",
-				selectors: []string{
-					"image-signature-subject:sampleimage",
-				},
 			},
-			want: map[string][]string{
-				"sha256:sampleimagehash": {
-					"image-signature-subject:sampleimage",
-				},
+			want: map[string]bool{
+				"sha256:sampleimagehash": true,
 			},
 		},
 		{
 			name: "add skipped image",
 			fields: fields{
-				verifyFunction: func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
-					return []oci.Signature{
-						signature{
-							payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "some digest"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 2","key3": "value 3"}}`),
-						},
-					}, true, nil
-				},
-				fetchImageManifestFunction: func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error) {
-					return &remote.Descriptor{
-						Manifest: []byte("sometext"),
-					}, nil
-				},
-				skippedImages: map[string]([]string){
-					"sha256:sampleimagehash1": {
-						"image-signature-subject:sampleimage1",
-					},
+				verifyFunction:             nil,
+				fetchImageManifestFunction: nil,
+				skippedImages: map[string]bool{
+					"sha256:sampleimagehash1": true,
 				},
 			},
 			args: args{
 				imageID: "sha256:sampleimagehash",
-				selectors: []string{
-					"image-signature-subject:sampleimage",
-				},
 			},
-			want: map[string][]string{
-				"sha256:sampleimagehash": {
-					"image-signature-subject:sampleimage",
-				},
-				"sha256:sampleimagehash1": {
-					"image-signature-subject:sampleimage1",
-				},
+			want: map[string]bool{
+				"sha256:sampleimagehash":  true,
+				"sha256:sampleimagehash1": true,
 			},
 		},
 	}
@@ -959,7 +906,7 @@ func TestSigstoreimpl_AddSkippedImage(t *testing.T) {
 				fetchImageManifestFunction: tt.fields.fetchImageManifestFunction,
 				skippedImages:              tt.fields.skippedImages,
 			}
-			sigstore.AddSkippedImage(tt.args.imageID, tt.args.selectors)
+			sigstore.AddSkippedImage(tt.args.imageID)
 			if !reflect.DeepEqual(sigstore.skippedImages, tt.want) {
 				t.Errorf("sigstore.skippedImages = %v, want %v", sigstore.skippedImages, tt.want)
 			}
@@ -971,28 +918,21 @@ func TestSigstoreimpl_ClearSkipList(t *testing.T) {
 	type fields struct {
 		verifyFunction             func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error)
 		fetchImageManifestFunction func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error)
-		skippedImages              map[string]([]string)
+		skippedImages              map[string]bool
 	}
 	tests := []struct {
 		name   string
 		fields fields
-		want   map[string]([]string)
+		want   map[string]bool
 	}{
 		{
 			name: "clear single image in map",
 			fields: fields{
-				verifyFunction: func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
-					return nil, true, nil
-				},
-				fetchImageManifestFunction: func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error) {
-					return &remote.Descriptor{
-						Manifest: []byte("sometext"),
-					}, nil
-				},
-				skippedImages: map[string][]string{
-					"sha256:sampleimagehash": {
-						"image-signature-subject:sampleimage",
-					},
+
+				verifyFunction:             nil,
+				fetchImageManifestFunction: nil,
+				skippedImages: map[string]bool{
+					"sha256:sampleimagehash": true,
 				},
 			},
 			want: nil,
@@ -1000,21 +940,11 @@ func TestSigstoreimpl_ClearSkipList(t *testing.T) {
 		{
 			name: "clear multiple images map",
 			fields: fields{
-				verifyFunction: func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
-					return nil, true, nil
-				},
-				fetchImageManifestFunction: func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error) {
-					return &remote.Descriptor{
-						Manifest: []byte("sometext"),
-					}, nil
-				},
-				skippedImages: map[string][]string{
-					"sha256:sampleimagehash": {
-						"image-signature-subject:sampleimage",
-					},
-					"sha256:sampleimagehash1": {
-						"image-signature-subject:sampleimage1",
-					},
+				verifyFunction:             nil,
+				fetchImageManifestFunction: nil,
+				skippedImages: map[string]bool{
+					"sha256:sampleimagehash":  true,
+					"sha256:sampleimagehash1": true,
 				},
 			},
 			want: nil,
@@ -1022,30 +952,18 @@ func TestSigstoreimpl_ClearSkipList(t *testing.T) {
 		{
 			name: "clear on empty map",
 			fields: fields{
-				verifyFunction: func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
-					return nil, true, nil
-				},
-				fetchImageManifestFunction: func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error) {
-					return &remote.Descriptor{
-						Manifest: []byte("sometext"),
-					}, nil
-				},
-				skippedImages: map[string][]string{},
+				verifyFunction:             nil,
+				fetchImageManifestFunction: nil,
+				skippedImages:              map[string]bool{},
 			},
 			want: nil,
 		},
 		{
 			name: "clear on nil map",
 			fields: fields{
-				verifyFunction: func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
-					return nil, true, nil
-				},
-				fetchImageManifestFunction: func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error) {
-					return &remote.Descriptor{
-						Manifest: []byte("sometext"),
-					}, nil
-				},
-				skippedImages: nil,
+				verifyFunction:             nil,
+				fetchImageManifestFunction: nil,
+				skippedImages:              nil,
 			},
 			want: nil,
 		},
@@ -1069,7 +987,7 @@ func TestSigstoreimpl_ValidateImage(t *testing.T) {
 	type fields struct {
 		verifyFunction             func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error)
 		fetchImageManifestFunction func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error)
-		skippedImages              map[string]([]string)
+		skippedImages              map[string]bool
 	}
 	type args struct {
 		ref name.Reference
