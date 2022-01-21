@@ -101,7 +101,6 @@ func (sigstore *Sigstoreimpl) ExtractSelectorsFromSignatures(signatures []oci.Si
 	if signatures == nil {
 		return nil
 	}
-	// TODO: add flag for verified stuff?
 	var selectors []string
 	for _, sig := range signatures {
 		// verify which subject
