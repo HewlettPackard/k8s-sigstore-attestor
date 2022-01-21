@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/sigstore/cosign/pkg/cosign"
 	"github.com/sigstore/cosign/pkg/oci"
 	corev1 "k8s.io/api/core/v1"
@@ -54,7 +55,10 @@ func TestNew(t *testing.T) {
 	}{
 		{
 			name: "New",
-			want: &Sigstoreimpl{verifyFunction: cosign.VerifyImageSignatures, validateImageRefFunction: ValidateImage},
+			want: &Sigstoreimpl{
+				verifyFunction: cosign.VerifyImageSignatures, fetchImageManifestFunction: remote.Get,
+				skippedImages: nil,
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -68,8 +72,8 @@ func TestNew(t *testing.T) {
 
 func TestSigstoreimpl_FetchImageSignatures(t *testing.T) {
 	type fields struct {
-		verifyFunction           func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error)
-		validateImageRefFunction func(name.Reference) (bool, error)
+		verifyFunction             func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error)
+		fetchImageManifestFunction func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error)
 	}
 	type args struct {
 		imageName string
@@ -88,21 +92,23 @@ func TestSigstoreimpl_FetchImageSignatures(t *testing.T) {
 				verifyFunction: func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
 					return []oci.Signature{
 						signature{
-							payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "some digest"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 2","key3": "value 3"}}`),
+							payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "02c15a8d1735c65bb8ca86c716615d3c0d8beb87dc68ed88bb49192f90b184e2"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 2","key3": "value 3"}}`),
 						},
 					}, true, nil
 				},
-				validateImageRefFunction: func(ref name.Reference) (bool, error) {
-					return true, nil
+				fetchImageManifestFunction: func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error) {
+					return &remote.Descriptor{
+						Manifest: []byte("sometext"),
+					}, nil
 				},
 			},
 			args: args{
-				imageName: "docker-registry.com/some/image",
+				imageName: "docker-registry.com/some/image@sha256:5fb2054478353fd8d514056d1745b3a9eef066deadda4b90967af7ca65ce6505",
 				rekorURL:  "https://some.url/",
 			},
 			want: []oci.Signature{
 				signature{
-					payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "some digest"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 2","key3": "value 3"}}`),
+					payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "02c15a8d1735c65bb8ca86c716615d3c0d8beb87dc68ed88bb49192f90b184e2"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 2","key3": "value 3"}}`),
 				},
 			},
 			wantErr: false,
@@ -113,24 +119,26 @@ func TestSigstoreimpl_FetchImageSignatures(t *testing.T) {
 				verifyFunction: func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
 					return []oci.Signature{
 						signature{
-							payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "some digest"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 2","key3": "value 3"}}`),
+							payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "5fb2054478353fd8d514056d1745b3a9eef066deadda4b90967af7ca65ce6505"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 2","key3": "value 3"}}`),
 						},
 						signature{
 							payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "some digest"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 4","key3": "value 5"}}`),
 						},
 					}, true, nil
 				},
-				validateImageRefFunction: func(ref name.Reference) (bool, error) {
-					return true, nil
+				fetchImageManifestFunction: func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error) {
+					return &remote.Descriptor{
+						Manifest: []byte("sometext"),
+					}, nil
 				},
 			},
 			args: args{
-				imageName: "docker-registry.com/some/image",
+				imageName: "docker-registry.com/some/image@sha256:5fb2054478353fd8d514056d1745b3a9eef066deadda4b90967af7ca65ce6505",
 				rekorURL:  "https://some.url/",
 			},
 			want: []oci.Signature{
 				signature{
-					payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "some digest"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 2","key3": "value 3"}}`),
+					payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "5fb2054478353fd8d514056d1745b3a9eef066deadda4b90967af7ca65ce6505"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 2","key3": "value 3"}}`),
 				},
 				signature{
 					payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "some digest"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 4","key3": "value 5"}}`),
@@ -142,12 +150,14 @@ func TestSigstoreimpl_FetchImageSignatures(t *testing.T) {
 			name: "fetch image with invalid rekor url",
 			fields: fields{
 				verifyFunction: nil,
-				validateImageRefFunction: func(ref name.Reference) (bool, error) {
-					return true, nil
+				fetchImageManifestFunction: func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error) {
+					return &remote.Descriptor{
+						Manifest: []byte("sometext"),
+					}, nil
 				},
 			},
 			args: args{
-				imageName: "docker-registry.com/some/image",
+				imageName: "docker-registry.com/some/image@sha256:5fb2054478353fd8d514056d1745b3a9eef066deadda4b90967af7ca65ce6505",
 				rekorURL:  "path-no-host", // URI parser uses this as path, not host
 			},
 			want:    nil,
@@ -157,12 +167,14 @@ func TestSigstoreimpl_FetchImageSignatures(t *testing.T) {
 			name: "fetch image with invalid rekor host",
 			fields: fields{
 				verifyFunction: nil,
-				validateImageRefFunction: func(ref name.Reference) (bool, error) {
-					return true, nil
+				fetchImageManifestFunction: func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error) {
+					return &remote.Descriptor{
+						Manifest: []byte("sometext"),
+					}, nil
 				},
 			},
 			args: args{
-				imageName: "docker-registry.com/some/image",
+				imageName: "docker-registry.com/some/image@sha256:5fb2054478353fd8d514056d1745b3a9eef066deadda4b90967af7ca65ce6505",
 				rekorURL:  "http://invalid.{{}))}.url.com", // invalid url
 			},
 			want:    nil,
@@ -172,12 +184,14 @@ func TestSigstoreimpl_FetchImageSignatures(t *testing.T) {
 			name: "fetch image with invalid rekor scheme",
 			fields: fields{
 				verifyFunction: nil,
-				validateImageRefFunction: func(ref name.Reference) (bool, error) {
-					return true, nil
+				fetchImageManifestFunction: func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error) {
+					return &remote.Descriptor{
+						Manifest: []byte("sometext"),
+					}, nil
 				},
 			},
 			args: args{
-				imageName: "docker-registry.com/some/image",
+				imageName: "docker-registry.com/some/image@sha256:5fb2054478353fd8d514056d1745b3a9eef066deadda4b90967af7ca65ce6505",
 				rekorURL:  "abc://invalid.url.com", // invalid scheme
 			},
 			want:    nil,
@@ -189,12 +203,14 @@ func TestSigstoreimpl_FetchImageSignatures(t *testing.T) {
 				verifyFunction: func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
 					return []oci.Signature{}, true, fmt.Errorf("no matching signatures 1")
 				},
-				validateImageRefFunction: func(ref name.Reference) (bool, error) {
-					return true, nil
+				fetchImageManifestFunction: func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error) {
+					return &remote.Descriptor{
+						Manifest: []byte("sometext"),
+					}, nil
 				},
 			},
 			args: args{
-				imageName: "docker-registry.com/some/image",
+				imageName: "docker-registry.com/some/image@sha256:5fb2054478353fd8d514056d1745b3a9eef066deadda4b90967af7ca65ce6505",
 				rekorURL:  "https://some.url/",
 			},
 			want:    nil,
@@ -206,12 +222,14 @@ func TestSigstoreimpl_FetchImageSignatures(t *testing.T) {
 				verifyFunction: func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
 					return []oci.Signature{}, true, fmt.Errorf("no matching signatures 2")
 				},
-				validateImageRefFunction: func(ref name.Reference) (bool, error) {
-					return true, nil
+				fetchImageManifestFunction: func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error) {
+					return &remote.Descriptor{
+						Manifest: []byte("sometext"),
+					}, nil
 				},
 			},
 			args: args{
-				imageName: "docker-registry.com/some/image",
+				imageName: "docker-registry.com/some/image@sha256:5fb2054478353fd8d514056d1745b3a9eef066deadda4b90967af7ca65ce6505",
 				rekorURL:  "https://some.url/",
 			},
 			want:    nil,
@@ -223,16 +241,18 @@ func TestSigstoreimpl_FetchImageSignatures(t *testing.T) {
 				verifyFunction: func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
 					return []oci.Signature{
 						signature{
-							payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "some digest"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 2","key3": "value 3"}}`),
+							payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "02c15a8d1735c65bb8ca86c716615d3c0d8beb87dc68ed88bb49192f90b184e2"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 2","key3": "value 3"}}`),
 						},
 					}, true, errors.New("some error")
 				},
-				validateImageRefFunction: func(ref name.Reference) (bool, error) {
-					return true, nil
+				fetchImageManifestFunction: func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error) {
+					return &remote.Descriptor{
+						Manifest: []byte("sometext"),
+					}, nil
 				},
 			},
 			args: args{
-				imageName: "docker-registry.com/some/image",
+				imageName: "docker-registry.com/some/image02c15a8d1735c65bb8ca86c716615d3c0d8beb87dc68ed88bb49192f90b184e2",
 				rekorURL:  "https://some.url/",
 			},
 			want:    nil,
@@ -243,15 +263,17 @@ func TestSigstoreimpl_FetchImageSignatures(t *testing.T) {
 			fields: fields{
 				verifyFunction: func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
 					return []oci.Signature{signature{
-						payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "some digest"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 2","key3": "value 3"}}`),
+						payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "02c15a8d1735c65bb8ca86c716615d3c0d8beb87dc68ed88bb49192f90b184e2"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 2","key3": "value 3"}}`),
 					}}, false, nil
 				},
-				validateImageRefFunction: func(ref name.Reference) (bool, error) {
-					return true, nil
+				fetchImageManifestFunction: func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error) {
+					return &remote.Descriptor{
+						Manifest: []byte("sometext"),
+					}, nil
 				},
 			},
 			args: args{
-				imageName: "docker-registry.com/some/image",
+				imageName: "docker-registry.com/some/image@sha256:5fb2054478353fd8d514056d1745b3a9eef066deadda4b90967af7ca65ce6505",
 				rekorURL:  "https://some.url/",
 			},
 			want:    nil,
@@ -260,11 +282,11 @@ func TestSigstoreimpl_FetchImageSignatures(t *testing.T) {
 		{
 			name: "fetch image with invalid image reference",
 			fields: fields{
-				verifyFunction:           nil,
-				validateImageRefFunction: nil,
+				verifyFunction:             nil,
+				fetchImageManifestFunction: nil,
 			},
 			args: args{
-				imageName: "invali|].url.com/some/image",
+				imageName: "invali|].url.com/some/image@sha256:5fb2054478353fd8d514056d1745b3a9eef066deadda4b90967af7ca65ce6505",
 				rekorURL:  "https://some.url/",
 			},
 			want:    nil,
@@ -276,21 +298,23 @@ func TestSigstoreimpl_FetchImageSignatures(t *testing.T) {
 				verifyFunction: func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
 					return []oci.Signature{
 						signature{
-							payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "some digest"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 2","key3": "value 3"}}`),
+							payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "02c15a8d1735c65bb8ca86c716615d3c0d8beb87dc68ed88bb49192f90b184e2"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 2","key3": "value 3"}}`),
 						},
 					}, true, nil
 				},
-				validateImageRefFunction: func(ref name.Reference) (bool, error) {
-					return true, nil
+				fetchImageManifestFunction: func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error) {
+					return &remote.Descriptor{
+						Manifest: []byte("sometext"),
+					}, nil
 				},
 			},
 			args: args{
-				imageName: "docker-registry.com/some/image",
+				imageName: "docker-registry.com/some/image@sha256:5fb2054478353fd8d514056d1745b3a9eef066deadda4b90967af7ca65ce6505",
 				rekorURL:  "",
 			},
 			want: []oci.Signature{
 				signature{
-					payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "some digest"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 2","key3": "value 3"}}`),
+					payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "02c15a8d1735c65bb8ca86c716615d3c0d8beb87dc68ed88bb49192f90b184e2"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 2","key3": "value 3"}}`),
 				},
 			},
 			wantErr: false,
@@ -299,12 +323,14 @@ func TestSigstoreimpl_FetchImageSignatures(t *testing.T) {
 			name: "fetch image with invalid image ref",
 			fields: fields{
 				verifyFunction: nil,
-				validateImageRefFunction: func(ref name.Reference) (bool, error) {
-					return false, errors.New("invalid image ref")
+				fetchImageManifestFunction: func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error) {
+					return &remote.Descriptor{
+						Manifest: []byte("sometext"),
+					}, nil
 				},
 			},
 			args: args{
-				imageName: "docker-registry.com/some/image",
+				imageName: "docker-registry.com/some/image@sha256:4fb2054478353fd8d514056d1745b3a9eef066deadda4b90967af7ca65ce6505",
 				rekorURL:  "",
 			},
 			want:    nil,
@@ -314,8 +340,8 @@ func TestSigstoreimpl_FetchImageSignatures(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			sigstore := Sigstoreimpl{
-				verifyFunction:           tt.fields.verifyFunction,
-				validateImageRefFunction: tt.fields.validateImageRefFunction,
+				verifyFunction:             tt.fields.verifyFunction,
+				fetchImageManifestFunction: tt.fields.fetchImageManifestFunction,
 			}
 			got, err := sigstore.FetchImageSignatures(tt.args.imageName, tt.args.rekorURL)
 			if (err != nil) != tt.wantErr {
@@ -651,9 +677,9 @@ func Test_certSubject(t *testing.T) {
 
 func TestSigstoreimpl_SkipImage(t *testing.T) {
 	type fields struct {
-		verifyFunction           func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error)
-		skippedImages            map[string]([]string)
-		validateImageRefFunction func(ref name.Reference) (bool, error)
+		verifyFunction             func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error)
+		skippedImages              map[string]([]string)
+		fetchImageManifestFunction func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error)
 	}
 	type args struct {
 		status corev1.ContainerStatus
@@ -674,9 +700,7 @@ func TestSigstoreimpl_SkipImage(t *testing.T) {
 						"image-signature-subject:sampleimage",
 					},
 				},
-				validateImageRefFunction: func(ref name.Reference) (bool, error) {
-					return true, nil
-				},
+				fetchImageManifestFunction: nil,
 			},
 			args: args{
 				status: corev1.ContainerStatus{
@@ -848,9 +872,9 @@ func Test_getSignatureSubject(t *testing.T) {
 
 func TestSigstoreimpl_AddSkippedImage(t *testing.T) {
 	type fields struct {
-		verifyFunction           func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error)
-		validateImageRefFunction func(name.Reference) (bool, error)
-		skippedImages            map[string]([]string)
+		verifyFunction             func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error)
+		fetchImageManifestFunction func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error)
+		skippedImages              map[string]([]string)
 	}
 	type args struct {
 		imageID   string
@@ -872,10 +896,12 @@ func TestSigstoreimpl_AddSkippedImage(t *testing.T) {
 						},
 					}, true, nil
 				},
-				validateImageRefFunction: func(name.Reference) (bool, error) {
-					return true, nil
+				fetchImageManifestFunction: func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error) {
+					return &remote.Descriptor{
+						Manifest: []byte("sometext"),
+					}, nil
 				},
-				skippedImages: map[string][]string{},
+				skippedImages: nil,
 			},
 			args: args{
 				imageID: "sha256:sampleimagehash",
@@ -899,8 +925,10 @@ func TestSigstoreimpl_AddSkippedImage(t *testing.T) {
 						},
 					}, true, nil
 				},
-				validateImageRefFunction: func(name.Reference) (bool, error) {
-					return true, nil
+				fetchImageManifestFunction: func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error) {
+					return &remote.Descriptor{
+						Manifest: []byte("sometext"),
+					}, nil
 				},
 				skippedImages: map[string]([]string){
 					"sha256:sampleimagehash1": {
@@ -927,13 +955,196 @@ func TestSigstoreimpl_AddSkippedImage(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			sigstore := Sigstoreimpl{
-				verifyFunction:           tt.fields.verifyFunction,
-				validateImageRefFunction: tt.fields.validateImageRefFunction,
-				skippedImages:            tt.fields.skippedImages,
+				verifyFunction:             tt.fields.verifyFunction,
+				fetchImageManifestFunction: tt.fields.fetchImageManifestFunction,
+				skippedImages:              tt.fields.skippedImages,
 			}
 			sigstore.AddSkippedImage(tt.args.imageID, tt.args.selectors)
 			if !reflect.DeepEqual(sigstore.skippedImages, tt.want) {
 				t.Errorf("sigstore.skippedImages = %v, want %v", sigstore.skippedImages, tt.want)
+			}
+		})
+	}
+}
+
+func TestSigstoreimpl_ClearSkipList(t *testing.T) {
+	type fields struct {
+		verifyFunction             func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error)
+		fetchImageManifestFunction func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error)
+		skippedImages              map[string]([]string)
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   map[string]([]string)
+	}{
+		{
+			name: "clear single image in map",
+			fields: fields{
+				verifyFunction: func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
+					return nil, true, nil
+				},
+				fetchImageManifestFunction: func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error) {
+					return &remote.Descriptor{
+						Manifest: []byte("sometext"),
+					}, nil
+				},
+				skippedImages: map[string][]string{
+					"sha256:sampleimagehash": {
+						"image-signature-subject:sampleimage",
+					},
+				},
+			},
+			want: nil,
+		},
+		{
+			name: "clear multiple images map",
+			fields: fields{
+				verifyFunction: func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
+					return nil, true, nil
+				},
+				fetchImageManifestFunction: func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error) {
+					return &remote.Descriptor{
+						Manifest: []byte("sometext"),
+					}, nil
+				},
+				skippedImages: map[string][]string{
+					"sha256:sampleimagehash": {
+						"image-signature-subject:sampleimage",
+					},
+					"sha256:sampleimagehash1": {
+						"image-signature-subject:sampleimage1",
+					},
+				},
+			},
+			want: nil,
+		},
+		{
+			name: "clear on empty map",
+			fields: fields{
+				verifyFunction: func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
+					return nil, true, nil
+				},
+				fetchImageManifestFunction: func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error) {
+					return &remote.Descriptor{
+						Manifest: []byte("sometext"),
+					}, nil
+				},
+				skippedImages: map[string][]string{},
+			},
+			want: nil,
+		},
+		{
+			name: "clear on nil map",
+			fields: fields{
+				verifyFunction: func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
+					return nil, true, nil
+				},
+				fetchImageManifestFunction: func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error) {
+					return &remote.Descriptor{
+						Manifest: []byte("sometext"),
+					}, nil
+				},
+				skippedImages: nil,
+			},
+			want: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sigstore := &Sigstoreimpl{
+				verifyFunction:             tt.fields.verifyFunction,
+				fetchImageManifestFunction: tt.fields.fetchImageManifestFunction,
+				skippedImages:              tt.fields.skippedImages,
+			}
+			sigstore.ClearSkipList()
+			if !reflect.DeepEqual(sigstore.skippedImages, tt.want) {
+				t.Errorf("sigstore.skippedImages = %v, want %v", sigstore.skippedImages, tt.want)
+			}
+		})
+	}
+}
+
+func TestSigstoreimpl_ValidateImage(t *testing.T) {
+	type fields struct {
+		verifyFunction             func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error)
+		fetchImageManifestFunction func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error)
+		skippedImages              map[string]([]string)
+	}
+	type args struct {
+		ref name.Reference
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    bool
+		wantErr bool
+	}{
+		{
+			name: "validate image",
+			fields: fields{
+				verifyFunction: nil,
+				fetchImageManifestFunction: func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error) {
+					return &remote.Descriptor{
+						Manifest: []byte(`sometext`),
+					}, nil
+				},
+				skippedImages: nil,
+			},
+			args: args{
+				ref: func(d name.Digest, err error) name.Digest { return d }(name.NewDigest("example.com/sampleimage@sha256:5fb2054478353fd8d514056d1745b3a9eef066deadda4b90967af7ca65ce6505")),
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "error on image manifest fetch",
+			fields: fields{
+				verifyFunction: nil,
+				fetchImageManifestFunction: func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error) {
+					return nil, errors.New("fetch error")
+				},
+				skippedImages: nil,
+			},
+			args: args{
+				ref: func(d name.Digest, err error) name.Digest { return d }(name.NewDigest("example.com/sampleimage@sha256:5fb2054478353fd8d514056d1745b3a9eef066deadda4b90967af7ca65ce6505")),
+			},
+			want:    false,
+			wantErr: true,
+		},
+		{
+			name: "nil image manifest fetch",
+			fields: fields{
+				verifyFunction: nil,
+				fetchImageManifestFunction: func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error) {
+					return &remote.Descriptor{
+						Manifest: nil,
+					}, nil
+				},
+				skippedImages: nil,
+			},
+			args: args{
+				ref: func(d name.Digest, err error) name.Digest { return d }(name.NewDigest("example.com/sampleimage@sha256:5fb2054478353fd8d514056d1745b3a9eef066deadda4b90967af7ca65ce6505")),
+			},
+			want:    false,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sigstore := &Sigstoreimpl{
+				verifyFunction:             tt.fields.verifyFunction,
+				skippedImages:              tt.fields.skippedImages,
+				fetchImageManifestFunction: tt.fields.fetchImageManifestFunction,
+			}
+			got, err := sigstore.ValidateImage(tt.args.ref)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Sigstoreimpl.ValidateImage() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("Sigstoreimpl.ValidateImage() = %v, want %v", got, tt.want)
 			}
 		})
 	}

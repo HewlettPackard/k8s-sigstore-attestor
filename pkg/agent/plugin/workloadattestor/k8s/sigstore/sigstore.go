@@ -33,16 +33,16 @@ type Sigstore interface {
 }
 
 type Sigstoreimpl struct {
-	verifyFunction           func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error)
-	validateImageRefFunction func(name.Reference) (bool, error)
-	skippedImages            map[string]([]string)
+	verifyFunction             func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error)
+	fetchImageManifestFunction func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error)
+	skippedImages              map[string]([]string)
 }
 
 func New() Sigstore {
 	return &Sigstoreimpl{
-		verifyFunction:           cosign.VerifyImageSignatures,
-		validateImageRefFunction: ValidateImage,
-		skippedImages:            nil,
+		verifyFunction:             cosign.VerifyImageSignatures,
+		fetchImageManifestFunction: remote.Get,
+		skippedImages:              nil,
 	}
 }
 
@@ -55,10 +55,9 @@ func (sigstore *Sigstoreimpl) FetchImageSignatures(imageName string, rekorURL st
 		return nil, errors.New(message)
 	}
 
-	_, err = sigstore.validateImageRefFunction(ref)
+	_, err = sigstore.ValidateImage(ref)
 	if err != nil {
 		message := fmt.Sprint("Could not validate image reference digest: ", err.Error())
-		log.Println(message)
 		return nil, errors.New(message)
 	}
 
@@ -208,12 +207,14 @@ func (sigstore *Sigstoreimpl) ClearSkipList() {
 	sigstore.skippedImages = nil
 }
 
-func ValidateImage(ref name.Reference) (bool, error) {
-	desc, err := remote.Get(ref)
+func (sigstore *Sigstoreimpl) ValidateImage(ref name.Reference) (bool, error) {
+	desc, err := sigstore.fetchImageManifestFunction(ref)
 	if err != nil {
 		return false, err
 	}
-
+	if desc.Manifest == nil {
+		return false, errors.New("Manifest is nil")
+	}
 	hash, _, err := v1.SHA256(bytes.NewReader(desc.Manifest))
 	if err != nil {
 		return false, err
@@ -226,9 +227,9 @@ func validateRefDigest(ref name.Reference, digest string) (bool, error) {
 	if dgst, ok := ref.(name.Digest); ok {
 		if dgst.DigestStr() == digest {
 			return true, nil
+		} else {
+			return false, fmt.Errorf("Digest %s does not match %s", digest, dgst.DigestStr())
 		}
 	}
-
-	// do nothing if ref is a Tag
-	return false, nil
+	return false, fmt.Errorf("Reference %s is not a digest", ref.String())
 }
