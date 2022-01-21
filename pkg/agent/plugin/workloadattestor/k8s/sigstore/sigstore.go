@@ -112,6 +112,9 @@ func (sigstore Sigstoreimpl) ExtractSelectorsFromSignatures(signatures []oci.Sig
 }
 
 func getSignatureSubject(signature oci.Signature) string {
+	if signature == nil {
+		return ""
+	}
 	ss := payload.SimpleContainerImage{}
 	pl, err := signature.Payload()
 	if err != nil {
