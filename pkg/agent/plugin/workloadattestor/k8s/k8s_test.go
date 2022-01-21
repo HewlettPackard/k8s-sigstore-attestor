@@ -838,9 +838,9 @@ func (s *Suite) setSigstoreSelectors(selectors []string) {
 	}
 }
 
-func (s *Suite) setSigstoreSigs(sigs []oci.Signature) {
-	s.sigstoreSigs = sigs
-}
+// func (s *Suite) setSigstoreSigs(sigs []oci.Signature) {
+// 	s.sigstoreSigs = sigs
+// }
 
 func (s *Suite) setSigstoreSkipSigs(skip bool) {
 	s.sigstoreSkipSigs = skip
