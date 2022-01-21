@@ -121,7 +121,7 @@ type HCLConfig struct {
 	RekorURL string `hcl:"rekor_url"`
 
 	// SkippedImageSubjects is a map containing selectors for images that should skip sigstore verification
-	SkippedImageSubjects map[string][]string `hcl:"skipped_image_subjects"`
+	SkippedImageSubjects map[string][]string `hcl:"skip_signature_verification_image_list"`
 }
 
 // k8sConfig holds the configuration distilled from HCL
@@ -214,8 +214,9 @@ func (p *Plugin) Attest(ctx context.Context, req *workloadattestorv1.AttestReque
 					signatures, err := p.sigstore.FetchImageSignatures(status.ImageID, p.config.RekorURL)
 					if err != nil {
 						log.Error("Error retrieving signature payload: ", err.Error())
-					} else {
+					} else if len(signatures) > 0 {
 						selectors = append(selectors, p.sigstore.ExtractSelectorsFromSignatures(signatures)...)
+						selectors = append(selectors, "signature-verified:true")
 					}
 				}
 				return &workloadattestorv1.AttestResponse{
