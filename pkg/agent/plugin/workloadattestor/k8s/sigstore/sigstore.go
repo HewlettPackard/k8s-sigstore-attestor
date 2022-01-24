@@ -21,14 +21,13 @@ import (
 	"github.com/sigstore/cosign/pkg/cosign"
 	"github.com/sigstore/cosign/pkg/oci"
 	"github.com/sigstore/sigstore/pkg/signature/payload"
-	corev1 "k8s.io/api/core/v1"
 )
 
 type Sigstore interface {
 	FetchImageSignatures(imageName string, rekorURL string) ([]oci.Signature, error)
 	SelectorValuesFromSignature(oci.Signature) []string
 	ExtractSelectorsFromSignatures(signatures []oci.Signature) []string
-	ShouldSkipImage(status corev1.ContainerStatus) (bool, error)
+	ShouldSkipImage(imageID string) (bool, error)
 	AddSkippedImage(imageID string)
 	ClearSkipList()
 	AddAllowedSubject(subject string)
@@ -249,14 +248,14 @@ func certSubject(c *x509.Certificate) string {
 // ShouldSkipImage checks the skip list for the image ID in the container status.
 // If the image ID is found in the skip list, it returns true.
 // If the image ID is not found in the skip list, it returns false.
-func (sigstore *Sigstoreimpl) ShouldSkipImage(status corev1.ContainerStatus) (bool, error) {
+func (sigstore *Sigstoreimpl) ShouldSkipImage(imageID string) (bool, error) {
 	if sigstore.skippedImages == nil {
 		return false, nil
 	}
-	if status.ImageID == "" {
-		return false, errors.New("Container status does not contain an image ID")
+	if imageID == "" {
+		return false, errors.New("Image ID is empty")
 	}
-	if _, ok := sigstore.skippedImages[status.ImageID]; ok {
+	if _, ok := sigstore.skippedImages[imageID]; ok {
 		return true, nil
 	}
 	return false, nil

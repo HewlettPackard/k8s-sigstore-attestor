@@ -120,8 +120,8 @@ type HCLConfig struct {
 	// RekorURL is the URL for the rekor server to use to verify signatures and public keys
 	RekorURL string `hcl:"rekor_url"`
 
-	// SkippedImageSubjects is a list containing images that should skip sigstore verification
-	SkippedImageSubjects []string `hcl:"skip_signature_verification_image_list"`
+	// SkippedImages is a list of images that should skip sigstore verification
+	SkippedImages []string `hcl:"skip_signature_verification_image_list"`
 
 	// AllowedSubjects is a flag indicating whether signature subjects should be compared against the allow-list
 	AllowedSubjectListEnabled bool `hcl:"enable_allowed_subjects_list"`
@@ -144,8 +144,8 @@ type k8sConfig struct {
 	NodeName                string
 	ReloadInterval          time.Duration
 
-	RekorURL             string
-	SkippedImageSubjects []string
+	RekorURL      string
+	SkippedImages []string
 
 	AllowedSubjectListEnabled bool
 	AllowedSubjects           []string
@@ -216,7 +216,7 @@ func (p *Plugin) Attest(ctx context.Context, req *workloadattestorv1.AttestReque
 			switch lookup {
 			case containerInPod:
 				selectors := getSelectorValuesFromPodInfo(&item, status)
-				skipImageSelectors, _ := p.sigstore.ShouldSkipImage(*status)
+				skipImageSelectors, _ := p.sigstore.ShouldSkipImage(status.ImageID)
 				if skipImageSelectors {
 					selectors = append(selectors, "signature-verified:true")
 				} else {
@@ -328,7 +328,7 @@ func (p *Plugin) Configure(ctx context.Context, req *configv1.ConfigureRequest) 
 		ReloadInterval:          reloadInterval,
 
 		RekorURL:                  config.RekorURL,
-		SkippedImageSubjects:      config.SkippedImageSubjects,
+		SkippedImages:             config.SkippedImages,
 		AllowedSubjectListEnabled: config.AllowedSubjectListEnabled,
 		AllowedSubjects:           config.AllowedSubjects,
 	}
@@ -337,8 +337,8 @@ func (p *Plugin) Configure(ctx context.Context, req *configv1.ConfigureRequest) 
 	}
 
 	p.sigstore.ClearSkipList()
-	if c.SkippedImageSubjects != nil {
-		for _, imageID := range c.SkippedImageSubjects {
+	if c.SkippedImages != nil {
+		for _, imageID := range c.SkippedImages {
 			p.sigstore.AddSkippedImage(imageID)
 		}
 	}
