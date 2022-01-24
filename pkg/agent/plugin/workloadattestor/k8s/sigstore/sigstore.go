@@ -23,7 +23,13 @@ import (
 	"github.com/sigstore/sigstore/pkg/signature/payload"
 )
 
+const (
+	// Signature Verification Selector
+	signatureVerifiedSelector = "signature-verified:true"
+)
+
 type Sigstore interface {
+	AttestContainerSignatures(imageID string) ([]string, error)
 	FetchImageSignatures(imageName string, rekorURL string) ([]oci.Signature, error)
 	SelectorValuesFromSignature(oci.Signature) []string
 	ExtractSelectorsFromSignatures(signatures []oci.Signature) []string
@@ -41,6 +47,7 @@ type Sigstoreimpl struct {
 	skippedImages              map[string]bool
 	allowListEnabled           bool
 	subjectAllowList           map[string]bool
+	rekorURL                   string
 }
 
 func New() Sigstore {
@@ -50,6 +57,7 @@ func New() Sigstore {
 		skippedImages:              nil,
 		allowListEnabled:           false,
 		subjectAllowList:           nil,
+		rekorURL:                   rekor.DefaultHost,
 	}
 }
 
@@ -69,6 +77,8 @@ func (sigstore *Sigstoreimpl) FetchImageSignatures(imageName string, rekorURL st
 	}
 
 	co := &cosign.CheckOpts{}
+
+	// TODO: move to config handling
 	if rekorURL != "" {
 		rekorURI, err := url.Parse(rekorURL)
 		if err != nil {
@@ -320,4 +330,21 @@ func (sigstore *Sigstoreimpl) ClearAllowedSubjects() {
 
 func (sigstore *Sigstoreimpl) EnableAllowSubjectList(flag bool) {
 	sigstore.allowListEnabled = flag
+}
+
+func (sigstore *Sigstoreimpl) AttestContainerSignatures(imageID string) ([]string, error) {
+	skip, _ := sigstore.ShouldSkipImage(imageID)
+	if skip {
+		return []string{signatureVerifiedSelector}, nil
+	} else {
+		signatures, err := sigstore.FetchImageSignatures(imageID, sigstore.rekorURL)
+		if err != nil {
+			return nil, err
+		}
+		selectors := sigstore.ExtractSelectorsFromSignatures(signatures)
+		if len(selectors) > 0 {
+			selectors = append(selectors, signatureVerifiedSelector)
+		}
+		return selectors, nil
+	}
 }

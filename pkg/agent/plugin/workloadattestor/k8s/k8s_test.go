@@ -32,7 +32,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
-	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -236,7 +235,7 @@ func (s *Suite) TestAttestWithPidInPod() {
 
 func (s *Suite) TestAttestWithSigstoreSignatures() {
 	s.startInsecureKubelet()
-	s.setSigstoreSelectors([]string{"image-signature-subject:sigstore-subject"})
+	s.setSigstoreSelectors([]string{"image-signature-subject:sigstore-subject", "signature-verified:true"})
 	p := s.loadInsecurePlugin()
 	s.requireAttestSuccessWithPodandSignature(p)
 	s.setSigstoreSelectors(nil)
@@ -246,7 +245,7 @@ func (s *Suite) TestAttestWithSigstoreSkippedImage() {
 	s.startInsecureKubelet()
 	// Skip the image
 	s.setSigstoreSkipSigs(true)
-	s.setSigstoreSkippedSigs([]string{"image-signature-subject:sigstore-subject-skipped"})
+	s.setSigstoreSkippedSigs([]string{})
 	p := s.loadInsecurePlugin()
 	s.requireAttestSuccessWithPodandSkippedImage(p)
 	s.setSigstoreSkipSigs(false)
@@ -444,7 +443,7 @@ func (s *Suite) TestConfigure() {
 		MaxPollAttempts           int
 		PollRetryInterval         time.Duration
 		ReloadInterval            time.Duration
-		SkippedImageSubjects      []string
+		SkippedImages             []string
 		AllowedSubjectListEnabled bool
 		AllowedSubjects           []string
 	}
@@ -659,7 +658,7 @@ func (s *Suite) TestConfigure() {
 				MaxPollAttempts:   defaultMaxPollAttempts,
 				PollRetryInterval: defaultPollRetryInterval,
 				ReloadInterval:    defaultReloadInterval,
-				SkippedImageSubjects: []string{
+				SkippedImages: []string{
 					"sha:image1hash",
 					"sha:image2hash",
 				},
@@ -728,7 +727,7 @@ func (s *Suite) TestConfigure() {
 			assert.Equal(t, testCase.config.MaxPollAttempts, c.MaxPollAttempts)
 			assert.Equal(t, testCase.config.PollRetryInterval, c.PollRetryInterval)
 			assert.Equal(t, testCase.config.ReloadInterval, c.ReloadInterval)
-			assert.Equal(t, testCase.config.SkippedImageSubjects, c.SkippedImageSubjects)
+			assert.Equal(t, testCase.config.SkippedImages, c.SkippedImages)
 			assert.Equal(t, testCase.config.AllowedSubjectListEnabled, c.AllowedSubjectListEnabled)
 			assert.Equal(t, testCase.config.AllowedSubjects, c.AllowedSubjects)
 		})
@@ -787,7 +786,7 @@ func (s *SigstoreMock) SelectorValuesFromSignature(signatures oci.Signature) []s
 	return s.selectors
 }
 
-func (s *SigstoreMock) ShouldSkipImage(image corev1.ContainerStatus) (bool, error) {
+func (s *SigstoreMock) ShouldSkipImage(imageID string) (bool, error) {
 	return s.skipSigs, s.returnError
 }
 
@@ -803,6 +802,9 @@ func (s *SigstoreMock) ClearAllowedSubjects() {
 }
 
 func (s *SigstoreMock) EnableAllowSubjectList(flag bool) {
+}
+func (s *SigstoreMock) AttestContainerSignatures(imageID string) ([]string, error) {
+	return s.selectors, s.returnError
 }
 
 func (s *Suite) newPlugin() *Plugin {

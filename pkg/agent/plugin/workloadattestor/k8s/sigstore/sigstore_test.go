@@ -14,7 +14,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/sigstore/cosign/pkg/cosign"
 	"github.com/sigstore/cosign/pkg/oci"
-	corev1 "k8s.io/api/core/v1"
+	rekor "github.com/sigstore/rekor/pkg/generated/client"
 )
 
 type signature struct {
@@ -59,6 +59,7 @@ func TestNew(t *testing.T) {
 			want: &Sigstoreimpl{
 				verifyFunction: cosign.VerifyImageSignatures, fetchImageManifestFunction: remote.Get,
 				skippedImages: nil,
+				rekorURL:      rekor.DefaultHost,
 			},
 		},
 	}
@@ -703,12 +704,10 @@ func Test_certSubject(t *testing.T) {
 
 func TestSigstoreimpl_SkipImage(t *testing.T) {
 	type fields struct {
-		verifyFunction             func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error)
-		skippedImages              map[string](bool)
-		fetchImageManifestFunction func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error)
+		skippedImages map[string](bool)
 	}
 	type args struct {
-		status corev1.ContainerStatus
+		imageID string
 	}
 	tests := []struct {
 		name    string
@@ -720,16 +719,12 @@ func TestSigstoreimpl_SkipImage(t *testing.T) {
 		{
 			name: "skipping only image in list",
 			fields: fields{
-				verifyFunction: nil,
 				skippedImages: map[string]bool{
 					"sha256:sampleimagehash": true,
 				},
-				fetchImageManifestFunction: nil,
 			},
 			args: args{
-				status: corev1.ContainerStatus{
-					ImageID: "sha256:sampleimagehash",
-				},
+				imageID: "sha256:sampleimagehash",
 			},
 			want:    true,
 			wantErr: false,
@@ -737,7 +732,6 @@ func TestSigstoreimpl_SkipImage(t *testing.T) {
 		{
 			name: "skipping image in list",
 			fields: fields{
-				verifyFunction: nil,
 				skippedImages: map[string]bool{
 					"sha256:sampleimagehash":  true,
 					"sha256:sampleimagehash2": true,
@@ -745,9 +739,7 @@ func TestSigstoreimpl_SkipImage(t *testing.T) {
 				},
 			},
 			args: args{
-				status: corev1.ContainerStatus{
-					ImageID: "sha256:sampleimagehash2",
-				},
+				imageID: "sha256:sampleimagehash2",
 			},
 			want:    true,
 			wantErr: false,
@@ -755,16 +747,13 @@ func TestSigstoreimpl_SkipImage(t *testing.T) {
 		{
 			name: "image not in list",
 			fields: fields{
-				verifyFunction: nil,
 				skippedImages: map[string]bool{
 					"sha256:sampleimagehash":  true,
 					"sha256:sampleimagehash3": true,
 				},
 			},
 			args: args{
-				status: corev1.ContainerStatus{
-					ImageID: "sha256:sampleimagehash2",
-				},
+				imageID: "sha256:sampleimagehash2",
 			},
 			want:    false,
 			wantErr: false,
@@ -772,21 +761,17 @@ func TestSigstoreimpl_SkipImage(t *testing.T) {
 		{
 			name: "empty skip list",
 			fields: fields{
-				verifyFunction: nil,
-				skippedImages:  nil,
+				skippedImages: nil,
 			},
 			args: args{
-				status: corev1.ContainerStatus{
-					ImageID: "sha256:sampleimagehash",
-				},
+				imageID: "sha256:sampleimagehash",
 			},
 			want:    false,
 			wantErr: false,
 		},
 		{
-			name: "image has no imageID",
+			name: "empty imageID",
 			fields: fields{
-				verifyFunction: nil,
 				skippedImages: map[string]bool{
 					"sha256:sampleimagehash":  true,
 					"sha256:sampleimagehash2": true,
@@ -794,9 +779,7 @@ func TestSigstoreimpl_SkipImage(t *testing.T) {
 				},
 			},
 			args: args{
-				status: corev1.ContainerStatus{
-					ImageID: "",
-				},
+				imageID: "",
 			},
 			want:    false,
 			wantErr: true,
@@ -805,10 +788,9 @@ func TestSigstoreimpl_SkipImage(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			sigstore := Sigstoreimpl{
-				verifyFunction: tt.fields.verifyFunction,
-				skippedImages:  tt.fields.skippedImages,
+				skippedImages: tt.fields.skippedImages,
 			}
-			got, err := sigstore.ShouldSkipImage(tt.args.status)
+			got, err := sigstore.ShouldSkipImage(tt.args.imageID)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Sigstoreimpl.SkipImage() error = %v, wantErr %v", err, tt.wantErr)
 				return
