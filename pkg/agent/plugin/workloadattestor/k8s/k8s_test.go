@@ -245,11 +245,11 @@ func (s *Suite) TestAttestWithSigstoreSkippedImage() {
 	s.startInsecureKubelet()
 	// Skip the image
 	s.setSigstoreSkipSigs(true)
-	s.setSigstoreSkippedSigs([]string{})
+	s.setSigstoreSkippedSigSelectors([]string{"signature-verified:true"})
 	p := s.loadInsecurePlugin()
 	s.requireAttestSuccessWithPodandSkippedImage(p)
 	s.setSigstoreSkipSigs(false)
-	s.setSigstoreSkippedSigs(nil)
+	s.setSigstoreSkippedSigSelectors(nil)
 }
 
 func (s *Suite) TestAttestWithFailedSigstoreSignatures() {
@@ -804,6 +804,9 @@ func (s *SigstoreMock) ClearAllowedSubjects() {
 func (s *SigstoreMock) EnableAllowSubjectList(flag bool) {
 }
 func (s *SigstoreMock) AttestContainerSignatures(imageID string) ([]string, error) {
+	if s.skipSigs {
+		return s.skippedSigSelectors, nil
+	}
 	return s.selectors, s.returnError
 }
 
@@ -850,7 +853,7 @@ func (s *Suite) setSigstoreSkipSigs(skip bool) {
 	s.sigstoreSkipSigs = skip
 }
 
-func (s *Suite) setSigstoreSkippedSigs(selectors []string) {
+func (s *Suite) setSigstoreSkippedSigSelectors(selectors []string) {
 	s.sigstoreSkippedSigSelectors = selectors
 }
 
