@@ -754,24 +754,6 @@ type SigstoreMock struct {
 	returnError         error
 }
 
-func (s *SigstoreMock) SetSelector(selectors []string) {
-	s.selectors = selectors
-}
-
-func (s *SigstoreMock) SetSig(sigs []oci.Signature) {
-	s.sigs = sigs
-}
-
-func (s *SigstoreMock) SetSkipSigs(allow bool) {
-	s.skipSigs = allow
-}
-
-func (s *SigstoreMock) SetSkippedSigSelectors(selectors []string) {
-	s.skippedSigSelectors = selectors
-}
-func (s *SigstoreMock) SetReturnError(err error) {
-	s.returnError = err
-}
 func (s *SigstoreMock) FetchImageSignatures(imageName string, rekorURL string) ([]oci.Signature, error) {
 	return s.sigs, s.returnError
 }
@@ -831,10 +813,6 @@ func (s *Suite) setSigstoreSelectors(selectors []string) {
 		}
 	}
 }
-
-// func (s *Suite) setSigstoreSigs(sigs []oci.Signature) {
-// 	s.sigstoreSigs = sigs
-// }
 
 func (s *Suite) setSigstoreSkipSigs(skip bool) {
 	s.sigstoreSkipSigs = skip
