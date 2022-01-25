@@ -207,7 +207,7 @@ func (p *Plugin) Attest(ctx context.Context, req *workloadattestorv1.AttestReque
 			switch lookup {
 			case containerInPod:
 				selectors := getSelectorValuesFromPodInfo(&item, status)
-				skipImageSelectors, _ := p.sigstore.SkipImage(*status)
+				skipImageSelectors, _ := p.sigstore.ShouldSkipImage(*status)
 				if skipImageSelectors {
 					selectors = append(selectors, "signature-verified:true")
 				} else {

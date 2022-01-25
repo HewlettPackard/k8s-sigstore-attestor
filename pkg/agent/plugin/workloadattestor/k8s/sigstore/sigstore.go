@@ -27,7 +27,7 @@ type Sigstore interface {
 	FetchImageSignatures(imageName string, rekorURL string) ([]oci.Signature, error)
 	SelectorValuesFromSignature(oci.Signature) []string
 	ExtractSelectorsFromSignatures(signatures []oci.Signature) []string
-	SkipImage(status corev1.ContainerStatus) (bool, error)
+	ShouldSkipImage(status corev1.ContainerStatus) (bool, error)
 	AddSkippedImage(imageID string)
 	ClearSkipList()
 }
@@ -177,7 +177,7 @@ func certSubject(c *x509.Certificate) string {
 // SkipImage checks the skip list for the image ID in the container status.
 // If the image ID is found in the skip list, it returns true.
 // If the image ID is not found in the skip list, it returns false.
-func (sigstore *Sigstoreimpl) SkipImage(status corev1.ContainerStatus) (bool, error) {
+func (sigstore *Sigstoreimpl) ShouldSkipImage(status corev1.ContainerStatus) (bool, error) {
 	if sigstore.skippedImages == nil {
 		return false, nil
 	}
@@ -206,6 +206,7 @@ func (sigstore *Sigstoreimpl) ClearSkipList() {
 	sigstore.skippedImages = nil
 }
 
+// Validates if the image manifest hash matches the digest in the image reference
 func (sigstore *Sigstoreimpl) ValidateImage(ref name.Reference) (bool, error) {
 	desc, err := sigstore.fetchImageManifestFunction(ref)
 	if err != nil {

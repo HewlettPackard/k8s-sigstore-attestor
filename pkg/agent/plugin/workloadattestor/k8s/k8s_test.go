@@ -784,7 +784,7 @@ func (s *SigstoreMock) SelectorValuesFromSignature(signatures oci.Signature) []s
 	return s.selectors
 }
 
-func (s *SigstoreMock) SkipImage(image corev1.ContainerStatus) (bool, error) {
+func (s *SigstoreMock) ShouldSkipImage(image corev1.ContainerStatus) (bool, error) {
 	return s.skipSigs, s.returnError
 }
 

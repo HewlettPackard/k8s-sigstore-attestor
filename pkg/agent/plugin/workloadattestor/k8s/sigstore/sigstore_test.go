@@ -782,7 +782,7 @@ func TestSigstoreimpl_SkipImage(t *testing.T) {
 				verifyFunction: tt.fields.verifyFunction,
 				skippedImages:  tt.fields.skippedImages,
 			}
-			got, err := sigstore.SkipImage(tt.args.status)
+			got, err := sigstore.ShouldSkipImage(tt.args.status)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Sigstoreimpl.SkipImage() error = %v, wantErr %v", err, tt.wantErr)
 				return
