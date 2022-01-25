@@ -174,7 +174,7 @@ func certSubject(c *x509.Certificate) string {
 	return ""
 }
 
-// SkipImage checks the skip list for the image ID in the container status.
+// ShouldSkipImage checks the skip list for the image ID in the container status.
 // If the image ID is found in the skip list, it returns true.
 // If the image ID is not found in the skip list, it returns false.
 func (sigstore *Sigstoreimpl) ShouldSkipImage(status corev1.ContainerStatus) (bool, error) {
