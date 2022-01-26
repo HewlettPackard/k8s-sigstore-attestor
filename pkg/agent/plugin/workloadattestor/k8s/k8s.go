@@ -21,7 +21,6 @@ import (
 	"github.com/andres-erbsen/clock"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/hcl"
-	"github.com/sigstore/cosign/pkg/oci"
 
 	workloadattestorv1 "github.com/spiffe/spire-plugin-sdk/proto/spire/plugin/agent/workloadattestor/v1"
 	configv1 "github.com/spiffe/spire-plugin-sdk/proto/spire/service/common/config/v1"
@@ -120,6 +119,9 @@ type HCLConfig struct {
 
 	// RekorURL is the URL for the rekor server to use to verify signatures and public keys
 	RekorURL string `hcl:"rekor_url"`
+
+	// SkippedImageSubjects is a map containing selectors for images that should skip sigstore verification
+	SkippedImageSubjects []string `hcl:"skip_signature_verification_image_list"`
 }
 
 // k8sConfig holds the configuration distilled from HCL
@@ -136,6 +138,8 @@ type k8sConfig struct {
 	NodeName                string
 	ReloadInterval          time.Duration
 	RekorURL                string
+
+	SkippedImageSubjects []string
 
 	Client     *kubeletClient
 	LastReload time.Time
@@ -202,12 +206,21 @@ func (p *Plugin) Attest(ctx context.Context, req *workloadattestorv1.AttestReque
 			status, lookup := lookUpContainerInPod(containerID, item.Status)
 			switch lookup {
 			case containerInPod:
-				signatures, err := p.sigstore.FetchSignaturePayload(status.Image, p.config.RekorURL)
-				if err != nil {
-					log.Error("Error retrieving signature payload: ", err.Error())
+				selectors := getSelectorValuesFromPodInfo(&item, status)
+				skipImageSelectors, _ := p.sigstore.ShouldSkipImage(*status)
+				if skipImageSelectors {
+					selectors = append(selectors, "signature-verified:true")
+				} else {
+					signatures, err := p.sigstore.FetchImageSignatures(status.ImageID, p.config.RekorURL)
+					if err != nil {
+						log.Error("Error retrieving signature payload: ", err.Error())
+					} else if len(signatures) > 0 {
+						selectors = append(selectors, p.sigstore.ExtractSelectorsFromSignatures(signatures)...)
+						selectors = append(selectors, "signature-verified:true")
+					}
 				}
 				return &workloadattestorv1.AttestResponse{
-					SelectorValues: getSelectorValuesFromPodInfo(&item, status, signatures, p.sigstore),
+					SelectorValues: selectors,
 				}, nil
 			case containerNotInPod:
 			}
@@ -302,9 +315,17 @@ func (p *Plugin) Configure(ctx context.Context, req *configv1.ConfigureRequest) 
 		NodeName:                nodeName,
 		ReloadInterval:          reloadInterval,
 		RekorURL:                config.RekorURL,
+		SkippedImageSubjects:    config.SkippedImageSubjects,
 	}
 	if err := p.reloadKubeletClient(c); err != nil {
 		return nil, err
+	}
+
+	p.sigstore.ClearSkipList()
+	if c.SkippedImageSubjects != nil {
+		for _, imageID := range c.SkippedImageSubjects {
+			p.sigstore.AddSkippedImage(imageID)
+		}
 	}
 
 	// Set the config
@@ -658,11 +679,10 @@ func getPodImageIdentifiers(containerStatusArray []corev1.ContainerStatus) map[s
 	return podImages
 }
 
-func getSelectorValuesFromPodInfo(pod *corev1.Pod, status *corev1.ContainerStatus, signatures []oci.Signature, sigstore sigstore.Sigstore) []string {
+func getSelectorValuesFromPodInfo(pod *corev1.Pod, status *corev1.ContainerStatus) []string {
 	podImageIdentifiers := getPodImageIdentifiers(pod.Status.ContainerStatuses)
 	podInitImageIdentifiers := getPodImageIdentifiers(pod.Status.InitContainerStatuses)
 	containerImageIdentifiers := getPodImageIdentifiers([]corev1.ContainerStatus{*status})
-	selectorOfSignedImage := sigstore.ExtractselectorOfSignedImage(signatures)
 
 	selectorValues := []string{
 		fmt.Sprintf("sa:%s", pod.Spec.ServiceAccountName),
@@ -691,10 +711,6 @@ func getSelectorValuesFromPodInfo(pod *corev1.Pod, status *corev1.ContainerStatu
 	for _, ownerReference := range pod.OwnerReferences {
 		selectorValues = append(selectorValues, fmt.Sprintf("pod-owner:%s:%s", ownerReference.Kind, ownerReference.Name))
 		selectorValues = append(selectorValues, fmt.Sprintf("pod-owner-uid:%s:%s", ownerReference.Kind, ownerReference.UID))
-	}
-
-	if selectorOfSignedImage != "" {
-		selectorValues = append(selectorValues, fmt.Sprintf("image-signature-subject:%s", selectorOfSignedImage))
 	}
 
 	return selectorValues
