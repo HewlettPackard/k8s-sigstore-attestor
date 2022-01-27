@@ -149,7 +149,7 @@ func (c *Controller) createPodEntry(ctx context.Context, pod *corev1.Pod) error 
 			Selectors: []*types.Selector{
 				namespaceSelector(pod.Namespace),
 				podNameSelector(pod.Name),
-				setTrueSignatureSelector("true"),
+				setSignatureSelectorValue("true"),
 			},
 			FederatesWith: federationDomains,
 		})
@@ -278,7 +278,7 @@ func podNameSelector(podName string) *types.Selector {
 	}
 }
 
-func setTrueSignatureSelector(selectorValue string) *types.Selector {
+func setSignatureSelectorValue(selectorValue string) *types.Selector {
 	return &types.Selector{
 		Type:  "k8s",
 		Value: fmt.Sprintf("signature-verified:%s", selectorValue),
