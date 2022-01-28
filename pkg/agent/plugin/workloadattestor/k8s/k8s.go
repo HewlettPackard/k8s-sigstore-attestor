@@ -120,8 +120,14 @@ type HCLConfig struct {
 	// RekorURL is the URL for the rekor server to use to verify signatures and public keys
 	RekorURL string `hcl:"rekor_url"`
 
-	// SkippedImageSubjects is a map containing selectors for images that should skip sigstore verification
+	// SkippedImageSubjects is a list containing images that should skip sigstore verification
 	SkippedImageSubjects []string `hcl:"skip_signature_verification_image_list"`
+
+	// AllowedSubjects is a flag indicating whether signature subjects should be compared against the allow-list
+	AllowedSubjectListEnabled bool `hcl:"enable_allowed_subjects_list"`
+
+	// AllowedSubjects is a list of subjects that should be allowed after verification
+	AllowedSubjects []string `hcl:"allowed_subjects_list"`
 }
 
 // k8sConfig holds the configuration distilled from HCL
@@ -137,9 +143,12 @@ type k8sConfig struct {
 	KubeletCAPath           string
 	NodeName                string
 	ReloadInterval          time.Duration
-	RekorURL                string
 
+	RekorURL             string
 	SkippedImageSubjects []string
+
+	AllowedSubjectListEnabled bool
+	AllowedSubjects           []string
 
 	Client     *kubeletClient
 	LastReload time.Time
@@ -215,8 +224,11 @@ func (p *Plugin) Attest(ctx context.Context, req *workloadattestorv1.AttestReque
 					if err != nil {
 						log.Error("Error retrieving signature payload: ", err.Error())
 					} else if len(signatures) > 0 {
-						selectors = append(selectors, p.sigstore.ExtractSelectorsFromSignatures(signatures)...)
-						selectors = append(selectors, "signature-verified:true")
+						filtered_selectors := p.sigstore.ExtractSelectorsFromSignatures(signatures)
+						if len(filtered_selectors) > 0 {
+							selectors = append(selectors, filtered_selectors...)
+							selectors = append(selectors, "signature-verified:true")
+						}
 					}
 				}
 				return &workloadattestorv1.AttestResponse{
@@ -314,8 +326,11 @@ func (p *Plugin) Configure(ctx context.Context, req *configv1.ConfigureRequest) 
 		KubeletCAPath:           config.KubeletCAPath,
 		NodeName:                nodeName,
 		ReloadInterval:          reloadInterval,
-		RekorURL:                config.RekorURL,
-		SkippedImageSubjects:    config.SkippedImageSubjects,
+
+		RekorURL:                  config.RekorURL,
+		SkippedImageSubjects:      config.SkippedImageSubjects,
+		AllowedSubjectListEnabled: config.AllowedSubjectListEnabled,
+		AllowedSubjects:           config.AllowedSubjects,
 	}
 	if err := p.reloadKubeletClient(c); err != nil {
 		return nil, err
@@ -325,6 +340,14 @@ func (p *Plugin) Configure(ctx context.Context, req *configv1.ConfigureRequest) 
 	if c.SkippedImageSubjects != nil {
 		for _, imageID := range c.SkippedImageSubjects {
 			p.sigstore.AddSkippedImage(imageID)
+		}
+	}
+
+	p.sigstore.EnableAllowSubjectList(c.AllowedSubjectListEnabled)
+	p.sigstore.ClearAllowedSubjects()
+	if c.AllowedSubjects != nil {
+		for _, subject := range c.AllowedSubjects {
+			p.sigstore.AddAllowedSubject(subject)
 		}
 	}
 
