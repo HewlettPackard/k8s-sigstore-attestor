@@ -796,13 +796,13 @@ func (s *SigstoreMock) AddSkippedImage(string) {
 func (s *SigstoreMock) ClearSkipList() {
 }
 
-func (sigstore *SigstoreMock) AddAllowedSubject(subject string) {
+func (s *SigstoreMock) AddAllowedSubject(subject string) {
 }
 
-func (sigstore *SigstoreMock) ClearAllowedSubjects() {
+func (s *SigstoreMock) ClearAllowedSubjects() {
 }
 
-func (sigstore *SigstoreMock) EnableAllowSubjectList(flag bool) {
+func (s *SigstoreMock) EnableAllowSubjectList(flag bool) {
 }
 
 func (s *Suite) newPlugin() *Plugin {

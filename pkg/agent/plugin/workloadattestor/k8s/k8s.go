@@ -224,9 +224,9 @@ func (p *Plugin) Attest(ctx context.Context, req *workloadattestorv1.AttestReque
 					if err != nil {
 						log.Error("Error retrieving signature payload: ", err.Error())
 					} else if len(signatures) > 0 {
-						filtered_selectors := p.sigstore.ExtractSelectorsFromSignatures(signatures)
-						if len(filtered_selectors) > 0 {
-							selectors = append(selectors, filtered_selectors...)
+						filteredSelectors := p.sigstore.ExtractSelectorsFromSignatures(signatures)
+						if len(filteredSelectors) > 0 {
+							selectors = append(selectors, filteredSelectors...)
 							selectors = append(selectors, "signature-verified:true")
 						}
 					}

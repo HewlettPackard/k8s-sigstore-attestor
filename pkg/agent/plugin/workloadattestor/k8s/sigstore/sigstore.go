@@ -215,7 +215,7 @@ func (sigstore *Sigstoreimpl) SelectorValuesFromSignature(signature oci.Signatur
 		}
 	}
 
-	var selectors []string = nil
+	var selectors []string
 	if !suppress {
 		selectors = []string{
 			fmt.Sprintf("image-signature-subject:%s", subject),
@@ -233,7 +233,6 @@ func (sigstore *Sigstoreimpl) SelectorValuesFromSignature(signature oci.Signatur
 	}
 
 	return selectors
-
 }
 
 func certSubject(c *x509.Certificate) string {
