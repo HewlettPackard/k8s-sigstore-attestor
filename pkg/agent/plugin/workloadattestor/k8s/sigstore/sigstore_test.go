@@ -1095,6 +1095,268 @@ func TestSigstoreimpl_ValidateImage(t *testing.T) {
 	}
 }
 
+func TestSigstoreimpl_AddAllowedSubject(t *testing.T) {
+	type fields struct {
+		subjectAllowList map[string]bool
+	}
+	type args struct {
+		subject string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   map[string]bool
+	}{
+		{
+			name: "add allowed subject to nil map",
+			fields: fields{
+				subjectAllowList: nil,
+			},
+			args: args{
+				subject: "spirex@hpe.com",
+			},
+			want: map[string]bool{
+				"spirex@hpe.com": true,
+			},
+		},
+		{
+			name: "add allowed subject to empty map",
+			fields: fields{
+				subjectAllowList: map[string]bool{},
+			},
+			args: args{
+				subject: "spirex@hpe.com",
+			},
+			want: map[string]bool{
+				"spirex@hpe.com": true,
+			},
+		},
+		{
+			name: "add allowed subject to existing map",
+			fields: fields{
+				subjectAllowList: map[string]bool{
+					"spirex1@hpe.com": true,
+					"spirex2@hpe.com": true,
+					"spirex3@hpe.com": true,
+					"spirex5@hpe.com": true,
+				},
+			},
+			args: args{
+				subject: "spirex4@hpe.com",
+			},
+			want: map[string]bool{
+				"spirex1@hpe.com": true,
+				"spirex2@hpe.com": true,
+				"spirex3@hpe.com": true,
+				"spirex4@hpe.com": true,
+				"spirex5@hpe.com": true,
+			},
+		},
+		{
+			name: "add existing allowed subject to existing map",
+			fields: fields{
+				subjectAllowList: map[string]bool{
+					"spirex1@hpe.com": true,
+					"spirex2@hpe.com": true,
+					"spirex3@hpe.com": true,
+					"spirex4@hpe.com": true,
+					"spirex5@hpe.com": true,
+				},
+			},
+			args: args{
+				subject: "spirex4@hpe.com",
+			},
+			want: map[string]bool{
+				"spirex1@hpe.com": true,
+				"spirex2@hpe.com": true,
+				"spirex3@hpe.com": true,
+				"spirex4@hpe.com": true,
+				"spirex5@hpe.com": true,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sigstore := &Sigstoreimpl{
+				subjectAllowList: tt.fields.subjectAllowList,
+			}
+			sigstore.AddAllowedSubject(tt.args.subject)
+			if !reflect.DeepEqual(sigstore.subjectAllowList, tt.want) {
+				t.Errorf("sigstore.subjectAllowList = %v, want %v", sigstore.subjectAllowList, tt.want)
+			}
+		})
+	}
+}
+
+func TestSigstoreimpl_ClearAllowedSubjects(t *testing.T) {
+	type fields struct {
+		subjectAllowList map[string]bool
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   map[string]bool
+	}{
+
+		{
+			name: "clear existing map",
+			fields: fields{
+				subjectAllowList: map[string]bool{
+					"spirex1@hpe.com": true,
+					"spirex2@hpe.com": true,
+					"spirex3@hpe.com": true,
+					"spirex4@hpe.com": true,
+					"spirex5@hpe.com": true,
+				},
+			},
+			want: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sigstore := &Sigstoreimpl{
+				subjectAllowList: tt.fields.subjectAllowList,
+			}
+			sigstore.ClearAllowedSubjects()
+			if !reflect.DeepEqual(sigstore.subjectAllowList, tt.want) {
+				t.Errorf("sigstore.subjectAllowList = %v, want %v", sigstore.subjectAllowList, tt.want)
+			}
+		})
+	}
+}
+
+func TestSigstoreimpl_EnableAllowSubjectList(t *testing.T) {
+	type fields struct {
+		allowListEnabled bool
+	}
+	type args struct {
+		flag bool
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   bool
+	}{
+		{
+			name: "disabling subject allow list",
+			fields: fields{
+				allowListEnabled: true,
+			},
+			args: args{
+				flag: false,
+			},
+			want: false,
+		},
+		{
+			name: "enabling subject allow list",
+			fields: fields{
+				allowListEnabled: false,
+			},
+			args: args{
+				flag: true,
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sigstore := &Sigstoreimpl{
+				allowListEnabled: tt.fields.allowListEnabled,
+			}
+			sigstore.EnableAllowSubjectList(tt.args.flag)
+			if sigstore.allowListEnabled != tt.want {
+				t.Errorf("sigstore.allowListEnabled = %v, want %v", sigstore.allowListEnabled, tt.want)
+			}
+		})
+	}
+}
+
+func TestSigstoreimpl_SelectorValuesFromSignature(t *testing.T) {
+	type fields struct {
+		allowListEnabled bool
+		subjectAllowList map[string]bool
+	}
+	type args struct {
+		signature oci.Signature
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   []string
+	}{
+		{
+			name: "selector from signature",
+			fields: fields{
+				allowListEnabled: false,
+				subjectAllowList: nil,
+			},
+			args: args{
+				signature: signature{
+					payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "02c15a8d1735c65bb8ca86c716615d3c0d8beb87dc68ed88bb49192f90b184e2"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 2","key3": "value 3"}}`),
+				},
+			},
+			want: []string{"image-signature-subject:spirex@hpe.com"},
+		},
+		{
+			name: "selector from signature, empty subject",
+			fields: fields{
+				allowListEnabled: false,
+				subjectAllowList: nil,
+			},
+			args: args{
+				signature: signature{
+					payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "02c15a8d1735c65bb8ca86c716615d3c0d8beb87dc68ed88bb49192f90b184e2"},"type": "some type"},"optional": {"subject": "","key2": "value 2","key3": "value 3"}}`),
+				},
+			},
+			want: nil,
+		},
+		{
+			name: "selector from signature, not in allowlist",
+			fields: fields{
+				allowListEnabled: true,
+				subjectAllowList: map[string]bool{
+					"spirex2@hpe.com": true,
+				},
+			},
+			args: args{
+				signature: signature{
+					payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "02c15a8d1735c65bb8ca86c716615d3c0d8beb87dc68ed88bb49192f90b184e2"},"type": "some type"},"optional": {"subject": "spirex1@hpe.com","key2": "value 2","key3": "value 3"}}`),
+				},
+			},
+			want: nil,
+		},
+		{
+			name: "selector from signature, allowedlist enabled, in allowlist",
+			fields: fields{
+				allowListEnabled: true,
+				subjectAllowList: map[string]bool{
+					"spirex@hpe.com": true,
+				},
+			},
+			args: args{
+				signature: signature{
+					payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "02c15a8d1735c65bb8ca86c716615d3c0d8beb87dc68ed88bb49192f90b184e2"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 2","key3": "value 3"}}`),
+				},
+			},
+			want: []string{"image-signature-subject:spirex@hpe.com"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sigstore := &Sigstoreimpl{
+				allowListEnabled: tt.fields.allowListEnabled,
+				subjectAllowList: tt.fields.subjectAllowList,
+			}
+			if got := sigstore.SelectorValuesFromSignature(tt.args.signature); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Sigstoreimpl.SelectorValuesFromSignature() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func Test_getBundleSignatureContent(t *testing.T) {
 	type args struct {
 		bundle *oci.Bundle
