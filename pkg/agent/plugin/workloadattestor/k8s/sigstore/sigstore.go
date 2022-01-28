@@ -147,6 +147,7 @@ func getSignatureSubject(signature oci.Signature) string {
 
 	return subject
 }
+
 // The following structs are used to go through the payload json objects
 type BundleSignature struct {
 	Content   string            `json:"content"`
