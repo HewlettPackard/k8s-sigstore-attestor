@@ -669,7 +669,7 @@ func (s *Suite) TestConfigure() {
 			name: "secure defaults with allowed subjects for sigstore",
 			hcl: `
 				enable_allowed_subjects_list = true,
-				allowed_subjects_list = ["spirex@hpe.com","spirex1@hpe.com"]
+				allowed_subjects_list = ["spirex@example.com","spirex1@example.com"]
 			`,
 			config: &config{
 				VerifyKubelet:             true,
@@ -679,7 +679,7 @@ func (s *Suite) TestConfigure() {
 				PollRetryInterval:         defaultPollRetryInterval,
 				ReloadInterval:            defaultReloadInterval,
 				AllowedSubjectListEnabled: true,
-				AllowedSubjects:           []string{"spirex@hpe.com", "spirex1@hpe.com"},
+				AllowedSubjects:           []string{"spirex@example.com", "spirex1@example.com"},
 			},
 		},
 	}

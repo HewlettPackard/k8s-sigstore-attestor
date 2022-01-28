@@ -825,10 +825,9 @@ func Test_getSignatureSubject(t *testing.T) {
 		signature oci.Signature
 	}
 	tests := []struct {
-		name    string
-		args    args
-		want    string
-		wantErr bool
+		name string
+		args args
+		want string
 	}{
 		{
 			name: "single image signature",
