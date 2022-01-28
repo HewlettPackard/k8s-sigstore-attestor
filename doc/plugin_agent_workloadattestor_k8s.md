@@ -43,8 +43,8 @@ server name validation against the kubelet certificate.
 | `node_name_env` | The environment variable used to obtain the node name. Defaults to `MY_NODE_NAME`. |
 | `node_name` | The name of the node. Overrides the value obtained by the environment variable specified by `node_name_env`. |
 | `skip_signature_verification_image_list`| The list of images, desribed as digest hashes, that should be skipped in signature verification. |
-| `enable_allowed_subjects_list`| Enables a list of allowed subjects that are trusted and are allowed to sign container images artificats|
-| `allowed_subjects_list`| The list of allowed subjects enabled by `enable_allowed_subjects_list` each entry represents subject e-mail |
+| `enable_allowed_subjects_list`| Enables a list of allowed subjects that are trusted and are allowed to sign container images artificats.|
+| `allowed_subjects_list`| The list of allowed subjects enabled by `enable_allowed_subjects_list` each entry represents subject e-mail. |
 
 | Selector | Value |
 | -------- | ----- |
