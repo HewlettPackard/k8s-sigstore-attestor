@@ -224,10 +224,8 @@ func (sigstore *Sigstoreimpl) SelectorValuesFromSignature(signature oci.Signatur
 		sigContent, err := getBundleSignatureContent(bundle)
 		if err != nil {
 			fmt.Println(fmt.Errorf("Error getting signature content: %s", err.Error()))
-		} else if sigContent != "" {
-			selectors = append(selectors, fmt.Sprintf("image-signature-content:%s", sigContent))
 		} else {
-			fmt.Println(fmt.Errorf("Empty signature content"))
+			selectors = append(selectors, fmt.Sprintf("image-signature-content:%s", sigContent))
 		}
 
 	}
