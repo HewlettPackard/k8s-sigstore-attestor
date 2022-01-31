@@ -223,7 +223,7 @@ func (sigstore *Sigstoreimpl) SelectorValuesFromSignature(signature oci.Signatur
 		bundle, _ := signature.Bundle()
 		sigContent, err := getBundleSignatureContent(bundle)
 		if err != nil {
-			fmt.Println(fmt.Errorf("Error getting signature content: %w", err.Error()))
+			log.Println("Error getting signature content: ", err.Error())
 		} else {
 			selectors = append(selectors, fmt.Sprintf("image-signature-content:%s", sigContent))
 		}
