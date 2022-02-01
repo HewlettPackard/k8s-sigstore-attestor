@@ -336,15 +336,16 @@ func (sigstore *Sigstoreimpl) AttestContainerSignatures(imageID string) ([]strin
 	skip, _ := sigstore.ShouldSkipImage(imageID)
 	if skip {
 		return []string{signatureVerifiedSelector}, nil
-	} else {
-		signatures, err := sigstore.FetchImageSignatures(imageID, sigstore.rekorURL)
-		if err != nil {
-			return nil, err
-		}
-		selectors := sigstore.ExtractSelectorsFromSignatures(signatures)
-		if len(selectors) > 0 {
-			selectors = append(selectors, signatureVerifiedSelector)
-		}
-		return selectors, nil
 	}
+
+	signatures, err := sigstore.FetchImageSignatures(imageID, sigstore.rekorURL)
+	if err != nil {
+		return nil, err
+	}
+	selectors := sigstore.ExtractSelectorsFromSignatures(signatures)
+	if len(selectors) > 0 {
+		selectors = append(selectors, signatureVerifiedSelector)
+	}
+
+	return selectors, nil
 }

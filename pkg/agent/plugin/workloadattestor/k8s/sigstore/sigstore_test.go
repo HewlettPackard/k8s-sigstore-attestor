@@ -1477,3 +1477,111 @@ func Test_getBundleSignatureContent(t *testing.T) {
 		})
 	}
 }
+
+func TestSigstoreimpl_AttestContainerSignatures(t *testing.T) {
+	type fields struct {
+		verifyFunction             func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error)
+		fetchImageManifestFunction func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error)
+		skippedImages              map[string]bool
+		rekorURL                   string
+	}
+	type args struct {
+		imageID string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    []string
+		wantErr bool
+	}{
+		{
+			name: "Attest image with signature",
+			fields: fields{
+				verifyFunction: func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
+					return []oci.Signature{
+						signature{
+							payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "02c15a8d1735c65bb8ca86c716615d3c0d8beb87dc68ed88bb49192f90b184e2"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 2","key3": "value 3"}}`),
+						},
+					}, true, nil
+				},
+				fetchImageManifestFunction: func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error) {
+					return &remote.Descriptor{
+						Manifest: []byte("sometext"),
+					}, nil
+				},
+			},
+			args: args{
+				imageID: "docker-registry.com/some/image@sha256:5fb2054478353fd8d514056d1745b3a9eef066deadda4b90967af7ca65ce6505",
+			},
+			want: []string{
+				"image-signature-subject:spirex@hpe.com", "signature-verified:true",
+			},
+			wantErr: false,
+		},
+		{
+			name: "Attest skipped image",
+			fields: fields{
+				verifyFunction: func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
+					return []oci.Signature{
+						signature{
+							payload: []byte(`{"critical": {"identity": {"docker-reference": "docker-registry.com/some/image"},"image": {"docker-manifest-digest": "02c15a8d1735c65bb8ca86c716615d3c0d8beb87dc68ed88bb49192f90b184e2"},"type": "some type"},"optional": {"subject": "spirex@hpe.com","key2": "value 2","key3": "value 3"}}`),
+						},
+					}, true, nil
+				},
+				fetchImageManifestFunction: func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error) {
+					return &remote.Descriptor{
+						Manifest: []byte("sometext"),
+					}, nil
+				},
+				skippedImages: map[string]bool{
+					"docker-registry.com/some/image@sha256:5fb2054478353fd8d514056d1745b3a9eef066deadda4b90967af7ca65ce6505": true,
+				},
+			},
+			args: args{
+				imageID: "docker-registry.com/some/image@sha256:5fb2054478353fd8d514056d1745b3a9eef066deadda4b90967af7ca65ce6505",
+			},
+			want: []string{
+				"signature-verified:true",
+			},
+			wantErr: false,
+		},
+		{
+			name: "Attest image with no signature",
+			fields: fields{
+				verifyFunction: func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
+					return nil, true, fmt.Errorf("no signature found")
+				},
+				fetchImageManifestFunction: func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error) {
+					return &remote.Descriptor{
+						Manifest: []byte("sometext"),
+					}, nil
+				},
+				skippedImages: nil,
+			},
+			args: args{
+				imageID: "docker-registry.com/some/image@sha256:5fb2054478353fd8d514056d1745b3a9eef066deadda4b90967af7ca65ce6505",
+			},
+			want:    nil,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sigstore := &Sigstoreimpl{
+				verifyFunction:             tt.fields.verifyFunction,
+				fetchImageManifestFunction: tt.fields.fetchImageManifestFunction,
+				skippedImages:              tt.fields.skippedImages,
+				rekorURL:                   tt.fields.rekorURL,
+			}
+			got, err := sigstore.AttestContainerSignatures(tt.args.imageID)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Sigstoreimpl.AttestContainerSignatures() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Sigstoreimpl.AttestContainerSignatures() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
