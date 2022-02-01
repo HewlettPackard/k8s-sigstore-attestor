@@ -61,8 +61,6 @@ func (s *SpiffeIDControllerTestSuite) TestCreateSpiffeID() {
 	}
 	err := s.k8sClient.Create(ctx, namespace)
 	s.Require().NoError(err)
-	// Todo: to remove
-	//SpiffeIDSignatureVerified := []string{"signature-verified:true"}
 
 	// Create the SPIFFE ID
 	spiffeID := &spiffeidv1beta1.SpiffeID{
@@ -79,8 +77,6 @@ func (s *SpiffeIDControllerTestSuite) TestCreateSpiffeID() {
 			ParentId: makeID(s.trustDomain, "%s/%s", "spire", "server"),
 			Selector: spiffeidv1beta1.Selector{
 				Namespace: SpiffeIDNamespace,
-				// Todo: to remove
-				/* Arbitrary: SpiffeIDSignatureVerified, */
 			},
 		},
 	}
