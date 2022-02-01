@@ -810,6 +810,9 @@ func (s *SigstoreMock) AttestContainerSignatures(imageID string) ([]string, erro
 	return s.selectors, s.returnError
 }
 
+func (s *SigstoreMock) SetRekorURL(string) {
+}
+
 func (s *Suite) newPlugin() *Plugin {
 	p := New()
 	p.fs = testFS(s.dir)

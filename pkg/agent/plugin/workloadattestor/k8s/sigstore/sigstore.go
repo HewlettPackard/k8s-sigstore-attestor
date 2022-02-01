@@ -39,6 +39,7 @@ type Sigstore interface {
 	AddAllowedSubject(subject string)
 	EnableAllowSubjectList(bool)
 	ClearAllowedSubjects()
+	SetRekorURL(rekorURL string)
 }
 
 type Sigstoreimpl struct {
@@ -348,4 +349,8 @@ func (sigstore *Sigstoreimpl) AttestContainerSignatures(imageID string) ([]strin
 	}
 
 	return selectors, nil
+}
+
+func (sigstore *Sigstoreimpl) SetRekorURL(url string) {
+	sigstore.rekorURL = url
 }

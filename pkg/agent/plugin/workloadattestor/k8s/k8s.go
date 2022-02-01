@@ -343,6 +343,8 @@ func (p *Plugin) Configure(ctx context.Context, req *configv1.ConfigureRequest) 
 		}
 	}
 
+	p.sigstore.SetRekorURL(c.RekorURL)
+
 	// Set the config
 	p.setConfig(c)
 	return &configv1.ConfigureResponse{}, nil
