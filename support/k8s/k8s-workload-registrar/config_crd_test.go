@@ -112,7 +112,7 @@ func TestLoadModeCRD(t *testing.T) {
 				webhook_enabled = false
 				mode = "crd"
 				identity_template = "IDENTITYTEMPLATE"
-				check_signature_enabled = true
+				check_signature_enabled = false
 			`,
 			out: &CRDMode{
 				CommonMode: CommonMode{
@@ -124,7 +124,7 @@ func TestLoadModeCRD(t *testing.T) {
 					Cluster:               "CLUSTEROVERRIDE",
 					Mode:                  "crd",
 					DisabledNamespaces:    []string{"kube-system", "kube-public"},
-					CheckSignatureEnabled: true,
+					CheckSignatureEnabled: false,
 				},
 				AddSvcDNSName:      false,
 				LeaderElection:     false,
