@@ -34,10 +34,7 @@ import (
 const (
 	TrustDomain           = "example.org"
 	Cluster               = "test-cluster"
-	CheckSignatureEnabled = false
-	PodController         = false
-	WebhookEnabled        = false
-	AddSvcDNSName         = false
+	CheckSignatureEnabled = true
 )
 
 type CommonControllerTestSuite struct {
