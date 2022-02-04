@@ -34,7 +34,7 @@ import (
 const (
 	TrustDomain           = "example.org"
 	Cluster               = "test-cluster"
-	CheckSignatureEnabled = true
+	CheckSignatureEnabled = false
 	PodController         = false
 	WebhookEnabled        = false
 	AddSvcDNSName         = false
