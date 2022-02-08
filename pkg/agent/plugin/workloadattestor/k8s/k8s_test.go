@@ -701,11 +701,11 @@ func (s *Suite) TestConfigure() {
 		{
 			name: "secure defaults with empty rekor URL",
 			hcl: `
-				rekorURL = ""
+				rekor_url = "inva{{{lid}"
 			`,
-			sigstoreError: errors.New("Rekor URL is empty"),
+			sigstoreError: errors.New("Error parsing rekor URI"),
 			config:        nil,
-			err:           "Rekor URL is empty",
+			err:           "Error parsing rekor URI",
 		},
 	}
 

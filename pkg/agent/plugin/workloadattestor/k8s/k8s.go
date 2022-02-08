@@ -343,10 +343,11 @@ func (p *Plugin) Configure(ctx context.Context, req *configv1.ConfigureRequest) 
 			p.sigstore.AddAllowedSubject(subject)
 		}
 	}
-
-	err = p.sigstore.SetRekorURL(c.RekorURL)
-	if err != nil {
-		return nil, err
+	if c.RekorURL != "" {
+		err = p.sigstore.SetRekorURL(c.RekorURL)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Set the config
