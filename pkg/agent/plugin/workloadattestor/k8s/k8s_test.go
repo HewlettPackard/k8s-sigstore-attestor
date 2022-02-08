@@ -724,7 +724,6 @@ func (s *Suite) TestConfigure() {
 				p.sigstore.(*SigstoreMock).returnError = nil
 			}
 			if testCase.err != "" {
-
 				s.AssertErrorContains(err, testCase.err)
 				return
 			}
