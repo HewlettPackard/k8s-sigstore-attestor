@@ -446,14 +446,16 @@ func (s *Suite) TestConfigure() {
 		SkippedImages             []string
 		AllowedSubjectListEnabled bool
 		AllowedSubjects           []string
+		RekorURL                  string
 	}
 
 	testCases := []struct {
-		name   string
-		raw    string
-		hcl    string
-		config *config
-		err    string
+		name          string
+		raw           string
+		hcl           string
+		config        *config
+		sigstoreError error
+		err           string
 	}{
 		{
 			name: "insecure defaults",
@@ -681,19 +683,48 @@ func (s *Suite) TestConfigure() {
 				AllowedSubjects:           []string{"spirex@example.com", "spirex1@example.com"},
 			},
 		},
+		{
+			name: "secure defaults with rekor URL",
+			hcl: `
+				rekor_url = "https://rekor.example.com"
+			`,
+			config: &config{
+				VerifyKubelet:     true,
+				Token:             "default-token",
+				KubeletURL:        "https://127.0.0.1:10250",
+				MaxPollAttempts:   defaultMaxPollAttempts,
+				PollRetryInterval: defaultPollRetryInterval,
+				ReloadInterval:    defaultReloadInterval,
+				RekorURL:          "https://rekor.example.com",
+			},
+		},
+		{
+			name: "secure defaults with empty rekor URL",
+			hcl: `
+				rekorURL = ""
+			`,
+			sigstoreError: errors.New("Rekor URL is empty"),
+			config:        nil,
+			err:           "Rekor URL is empty",
+		},
 	}
 
 	for _, testCase := range testCases {
 		testCase := testCase // alias loop variable as it is used in the closure
 		s.T().Run(testCase.name, func(t *testing.T) {
 			p := s.newPlugin()
-
+			if testCase.sigstoreError != nil {
+				p.sigstore.(*SigstoreMock).returnError = testCase.sigstoreError
+			}
 			var err error
 			plugintest.Load(s.T(), builtin(p), nil,
 				plugintest.Configure(testCase.hcl),
 				plugintest.CaptureConfigureError(&err))
-
+			if testCase.sigstoreError != nil {
+				p.sigstore.(*SigstoreMock).returnError = nil
+			}
 			if testCase.err != "" {
+
 				s.AssertErrorContains(err, testCase.err)
 				return
 			}
@@ -730,6 +761,7 @@ func (s *Suite) TestConfigure() {
 			assert.Equal(t, testCase.config.SkippedImages, c.SkippedImages)
 			assert.Equal(t, testCase.config.AllowedSubjectListEnabled, c.AllowedSubjectListEnabled)
 			assert.Equal(t, testCase.config.AllowedSubjects, c.AllowedSubjects)
+			assert.Equal(t, testCase.config.RekorURL, c.RekorURL)
 		})
 	}
 }
@@ -772,6 +804,8 @@ type SigstoreMock struct {
 	skipSigs            bool
 	skippedSigSelectors []string
 	returnError         error
+
+	rekorURL string
 }
 
 func (s *SigstoreMock) FetchImageSignatures(imageName string) ([]oci.Signature, error) {
@@ -810,7 +844,8 @@ func (s *SigstoreMock) AttestContainerSignatures(imageID string) ([]string, erro
 	return s.selectors, s.returnError
 }
 
-func (s *SigstoreMock) SetRekorURL(string) error {
+func (s *SigstoreMock) SetRekorURL(url string) error {
+	s.rekorURL = url
 	return s.returnError
 }
 

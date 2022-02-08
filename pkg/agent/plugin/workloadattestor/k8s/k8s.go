@@ -328,6 +328,7 @@ func (p *Plugin) Configure(ctx context.Context, req *configv1.ConfigureRequest) 
 		return nil, err
 	}
 
+	// Configure sigstore settings
 	p.sigstore.ClearSkipList()
 	if c.SkippedImages != nil {
 		for _, imageID := range c.SkippedImages {
