@@ -253,9 +253,9 @@ func (s *Suite) TestAttestWithSigstoreSkippedImage() {
 }
 
 func (s *Suite) TestAttestWithFailedSigstoreSignatures() {
-	s.setSigstoreReturnError(errors.New("sigstore error"))
 	s.startInsecureKubelet()
 	p := s.loadInsecurePlugin()
+	s.setSigstoreReturnError(errors.New("sigstore error"))
 	s.requireAttestSuccessWithPod(p)
 	s.setSigstoreReturnError(nil)
 }
@@ -774,7 +774,7 @@ type SigstoreMock struct {
 	returnError         error
 }
 
-func (s *SigstoreMock) FetchImageSignatures(imageName string, rekorURL string) ([]oci.Signature, error) {
+func (s *SigstoreMock) FetchImageSignatures(imageName string) ([]oci.Signature, error) {
 	return s.sigs, s.returnError
 }
 
@@ -810,7 +810,8 @@ func (s *SigstoreMock) AttestContainerSignatures(imageID string) ([]string, erro
 	return s.selectors, s.returnError
 }
 
-func (s *SigstoreMock) SetRekorURL(string) {
+func (s *SigstoreMock) SetRekorURL(string) error {
+	return s.returnError
 }
 
 func (s *Suite) newPlugin() *Plugin {

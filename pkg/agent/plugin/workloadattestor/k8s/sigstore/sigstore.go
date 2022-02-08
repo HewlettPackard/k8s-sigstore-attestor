@@ -30,7 +30,7 @@ const (
 
 type Sigstore interface {
 	AttestContainerSignatures(imageID string) ([]string, error)
-	FetchImageSignatures(imageName string, rekorURL string) ([]oci.Signature, error)
+	FetchImageSignatures(imageName string) ([]oci.Signature, error)
 	SelectorValuesFromSignature(oci.Signature) []string
 	ExtractSelectorsFromSignatures(signatures []oci.Signature) []string
 	ShouldSkipImage(imageID string) (bool, error)
@@ -39,7 +39,7 @@ type Sigstore interface {
 	AddAllowedSubject(subject string)
 	EnableAllowSubjectList(bool)
 	ClearAllowedSubjects()
-	SetRekorURL(rekorURL string)
+	SetRekorURL(rekorURL string) error
 }
 
 type Sigstoreimpl struct {
@@ -48,7 +48,7 @@ type Sigstoreimpl struct {
 	skippedImages              map[string]bool
 	allowListEnabled           bool
 	subjectAllowList           map[string]bool
-	rekorURL                   string
+	rekorURL                   url.URL
 }
 
 func New() Sigstore {
@@ -58,13 +58,17 @@ func New() Sigstore {
 		skippedImages:              nil,
 		allowListEnabled:           false,
 		subjectAllowList:           nil,
-		rekorURL:                   rekor.DefaultHost,
+		rekorURL: url.URL{
+			Scheme: rekor.DefaultSchemes[0],
+			Host:   rekor.DefaultHost,
+			Path:   rekor.DefaultBasePath,
+		},
 	}
 }
 
 // FetchImageSignatures retrieves signatures for specified image via cosign, using the specified rekor server.
 // Returns a list of verified signatures, and an error if any.
-func (sigstore *Sigstoreimpl) FetchImageSignatures(imageName string, rekorURL string) ([]oci.Signature, error) {
+func (sigstore *Sigstoreimpl) FetchImageSignatures(imageName string) ([]oci.Signature, error) {
 	ref, err := name.ParseReference(imageName)
 	if err != nil {
 		message := fmt.Sprint("Error parsing image reference: ", err.Error())
@@ -79,23 +83,10 @@ func (sigstore *Sigstoreimpl) FetchImageSignatures(imageName string, rekorURL st
 
 	co := &cosign.CheckOpts{}
 
+	// Set the rekor client
+	co.RekorClient = rekor.NewHTTPClientWithConfig(nil, rekor.DefaultTransportConfig().WithBasePath(sigstore.rekorURL.Path).WithHost(sigstore.rekorURL.Host))
 	// TODO: move to config handling
-	if rekorURL != "" {
-		rekorURI, err := url.Parse(rekorURL)
-		if err != nil {
-			message := fmt.Sprint("Error parsing rekor URI: ", err.Error())
-			return nil, errors.New(message)
-		}
-		if rekorURI.Scheme != "" && rekorURI.Scheme != "https" {
-			return nil, errors.New("Invalid rekor URL Scheme: " + rekorURI.Scheme)
-		}
-		if rekorURI.Host == "" {
-			return nil, errors.New("Invalid rekor URL Host: " + rekorURI.Host)
-		}
-		co.RekorClient = rekor.NewHTTPClientWithConfig(nil, rekor.DefaultTransportConfig().WithBasePath(rekorURI.Path).WithHost(rekorURI.Host))
-	} else {
-		co.RekorClient = rekor.NewHTTPClientWithConfig(nil, rekor.DefaultTransportConfig())
-	}
+
 	co.RootCerts = fulcio.GetRoots()
 
 	ctx := context.Background()
@@ -339,7 +330,7 @@ func (sigstore *Sigstoreimpl) AttestContainerSignatures(imageID string) ([]strin
 		return []string{signatureVerifiedSelector}, nil
 	}
 
-	signatures, err := sigstore.FetchImageSignatures(imageID, sigstore.rekorURL)
+	signatures, err := sigstore.FetchImageSignatures(imageID)
 	if err != nil {
 		return nil, err
 	}
@@ -351,6 +342,21 @@ func (sigstore *Sigstoreimpl) AttestContainerSignatures(imageID string) ([]strin
 	return selectors, nil
 }
 
-func (sigstore *Sigstoreimpl) SetRekorURL(url string) {
-	sigstore.rekorURL = url
+func (sigstore *Sigstoreimpl) SetRekorURL(rekorURL string) error {
+	if rekorURL == "" {
+		return errors.New("Rekor URL is empty")
+	}
+	rekorURI, err := url.Parse(rekorURL)
+	if err != nil {
+		message := fmt.Sprint("Error parsing rekor URI: ", err.Error())
+		return errors.New(message)
+	}
+	if rekorURI.Scheme != "" && rekorURI.Scheme != "https" {
+		return errors.New("Invalid rekor URL Scheme: " + rekorURI.Scheme)
+	}
+	if rekorURI.Host == "" {
+		return errors.New("Invalid rekor URL Host: " + rekorURI.Host)
+	}
+	sigstore.rekorURL = *rekorURI
+	return nil
 }

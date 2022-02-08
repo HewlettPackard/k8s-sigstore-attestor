@@ -59,7 +59,11 @@ func TestNew(t *testing.T) {
 			want: &Sigstoreimpl{
 				verifyFunction: cosign.VerifyImageSignatures, fetchImageManifestFunction: remote.Get,
 				skippedImages: nil,
-				rekorURL:      rekor.DefaultHost,
+				rekorURL: url.URL{
+					Scheme: rekor.DefaultSchemes[0],
+					Host:   rekor.DefaultHost,
+					Path:   rekor.DefaultBasePath,
+				},
 			},
 		},
 	}
@@ -79,7 +83,6 @@ func TestSigstoreimpl_FetchImageSignatures(t *testing.T) {
 	}
 	type args struct {
 		imageName string
-		rekorURL  string
 	}
 	tests := []struct {
 		name    string
@@ -106,7 +109,6 @@ func TestSigstoreimpl_FetchImageSignatures(t *testing.T) {
 			},
 			args: args{
 				imageName: "docker-registry.com/some/image@sha256:5fb2054478353fd8d514056d1745b3a9eef066deadda4b90967af7ca65ce6505",
-				rekorURL:  "https://some.url/",
 			},
 			want: []oci.Signature{
 				signature{
@@ -136,7 +138,6 @@ func TestSigstoreimpl_FetchImageSignatures(t *testing.T) {
 			},
 			args: args{
 				imageName: "docker-registry.com/some/image@sha256:5fb2054478353fd8d514056d1745b3a9eef066deadda4b90967af7ca65ce6505",
-				rekorURL:  "https://some.url/",
 			},
 			want: []oci.Signature{
 				signature{
@@ -147,57 +148,6 @@ func TestSigstoreimpl_FetchImageSignatures(t *testing.T) {
 				},
 			},
 			wantErr: false,
-		},
-		{
-			name: "fetch image with invalid rekor url",
-			fields: fields{
-				verifyFunction: nil,
-				fetchImageManifestFunction: func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error) {
-					return &remote.Descriptor{
-						Manifest: []byte("sometext"),
-					}, nil
-				},
-			},
-			args: args{
-				imageName: "docker-registry.com/some/image@sha256:5fb2054478353fd8d514056d1745b3a9eef066deadda4b90967af7ca65ce6505",
-				rekorURL:  "path-no-host", // URI parser uses this as path, not host
-			},
-			want:    nil,
-			wantErr: true,
-		},
-		{
-			name: "fetch image with invalid rekor host",
-			fields: fields{
-				verifyFunction: nil,
-				fetchImageManifestFunction: func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error) {
-					return &remote.Descriptor{
-						Manifest: []byte("sometext"),
-					}, nil
-				},
-			},
-			args: args{
-				imageName: "docker-registry.com/some/image@sha256:5fb2054478353fd8d514056d1745b3a9eef066deadda4b90967af7ca65ce6505",
-				rekorURL:  "http://invalid.{{}))}.url.com", // invalid url
-			},
-			want:    nil,
-			wantErr: true,
-		},
-		{
-			name: "fetch image with invalid rekor scheme",
-			fields: fields{
-				verifyFunction: nil,
-				fetchImageManifestFunction: func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error) {
-					return &remote.Descriptor{
-						Manifest: []byte("sometext"),
-					}, nil
-				},
-			},
-			args: args{
-				imageName: "docker-registry.com/some/image@sha256:5fb2054478353fd8d514056d1745b3a9eef066deadda4b90967af7ca65ce6505",
-				rekorURL:  "abc://invalid.url.com", // invalid scheme
-			},
-			want:    nil,
-			wantErr: true,
 		},
 		{
 			name: "fetch image with no signature",
@@ -213,7 +163,6 @@ func TestSigstoreimpl_FetchImageSignatures(t *testing.T) {
 			},
 			args: args{
 				imageName: "docker-registry.com/some/image@sha256:5fb2054478353fd8d514056d1745b3a9eef066deadda4b90967af7ca65ce6505",
-				rekorURL:  "https://some.url/",
 			},
 			want:    nil,
 			wantErr: true,
@@ -232,7 +181,7 @@ func TestSigstoreimpl_FetchImageSignatures(t *testing.T) {
 			},
 			args: args{
 				imageName: "docker-registry.com/some/image@sha256:5fb2054478353fd8d514056d1745b3a9eef066deadda4b90967af7ca65ce6505",
-				rekorURL:  "https://some.url/",
+				//
 			},
 			want:    nil,
 			wantErr: true,
@@ -255,7 +204,6 @@ func TestSigstoreimpl_FetchImageSignatures(t *testing.T) {
 			},
 			args: args{
 				imageName: "docker-registry.com/some/image02c15a8d1735c65bb8ca86c716615d3c0d8beb87dc68ed88bb49192f90b184e2",
-				rekorURL:  "https://some.url/",
 			},
 			want:    nil,
 			wantErr: true,
@@ -276,7 +224,6 @@ func TestSigstoreimpl_FetchImageSignatures(t *testing.T) {
 			},
 			args: args{
 				imageName: "docker-registry.com/some/image@sha256:5fb2054478353fd8d514056d1745b3a9eef066deadda4b90967af7ca65ce6505",
-				rekorURL:  "https://some.url/",
 			},
 			want:    nil,
 			wantErr: true,
@@ -289,7 +236,6 @@ func TestSigstoreimpl_FetchImageSignatures(t *testing.T) {
 			},
 			args: args{
 				imageName: "invali|].url.com/some/image@sha256:5fb2054478353fd8d514056d1745b3a9eef066deadda4b90967af7ca65ce6505",
-				rekorURL:  "https://some.url/",
 			},
 			want:    nil,
 			wantErr: true,
@@ -312,7 +258,6 @@ func TestSigstoreimpl_FetchImageSignatures(t *testing.T) {
 			},
 			args: args{
 				imageName: "docker-registry.com/some/image@sha256:5fb2054478353fd8d514056d1745b3a9eef066deadda4b90967af7ca65ce6505",
-				rekorURL:  "",
 			},
 			want: []oci.Signature{
 				signature{
@@ -333,7 +278,6 @@ func TestSigstoreimpl_FetchImageSignatures(t *testing.T) {
 			},
 			args: args{
 				imageName: "docker-registry.com/some/image@sha256:4fb2054478353fd8d514056d1745b3a9eef066deadda4b90967af7ca65ce6505",
-				rekorURL:  "",
 			},
 			want:    nil,
 			wantErr: true,
@@ -345,7 +289,7 @@ func TestSigstoreimpl_FetchImageSignatures(t *testing.T) {
 				verifyFunction:             tt.fields.verifyFunction,
 				fetchImageManifestFunction: tt.fields.fetchImageManifestFunction,
 			}
-			got, err := sigstore.FetchImageSignatures(tt.args.imageName, tt.args.rekorURL)
+			got, err := sigstore.FetchImageSignatures(tt.args.imageName)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Sigstoreimpl.FetchImageSignatures() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -1483,7 +1427,7 @@ func TestSigstoreimpl_AttestContainerSignatures(t *testing.T) {
 		verifyFunction             func(context context.Context, ref name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error)
 		fetchImageManifestFunction func(ref name.Reference, options ...remote.Option) (*remote.Descriptor, error)
 		skippedImages              map[string]bool
-		rekorURL                   string
+		rekorURL                   url.URL
 	}
 	type args struct {
 		imageID string
@@ -1581,6 +1525,100 @@ func TestSigstoreimpl_AttestContainerSignatures(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Sigstoreimpl.AttestContainerSignatures() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSigstoreimpl_SetRekorURL(t *testing.T) {
+	type fields struct {
+		rekorURL url.URL
+	}
+	type args struct {
+		rekorURL string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    url.URL
+		wantErr bool
+	}{
+		{
+			name: "SetRekorURL",
+			fields: fields{
+				rekorURL: url.URL{},
+			},
+			args: args{
+				rekorURL: "https://rekor.com",
+			},
+			want: url.URL{
+				Scheme: "https",
+				Host:   "rekor.com",
+			},
+			wantErr: false,
+		},
+		{
+			name: "SetRekorURL with empty url",
+			fields: fields{
+				rekorURL: url.URL{
+					Scheme: "https",
+					Host:   "non.empty.url",
+				},
+			},
+			args: args{
+				rekorURL: "",
+			},
+			want: url.URL{
+				Scheme: "https",
+				Host:   "non.empty.url",
+			},
+			wantErr: true,
+		},
+		{
+			name: "SetRekorURL with invalid URL",
+			fields: fields{
+				rekorURL: url.URL{},
+			},
+			args: args{
+				rekorURL: "http://invalid.{{}))}.url.com", // invalid url
+			},
+			want:    url.URL{},
+			wantErr: true,
+		},
+		{
+			name: "SetRekorURL with empty host url",
+			fields: fields{
+				rekorURL: url.URL{},
+			},
+			args: args{
+				rekorURL: "path-no-host", // URI parser uses this as path, not host
+			},
+			want:    url.URL{},
+			wantErr: true,
+		},
+		{
+			name: "SetRekorURL with invalid URL scheme",
+			fields: fields{
+				rekorURL: url.URL{},
+			},
+			args: args{
+				rekorURL: "abc://invalid.url.com", // invalid scheme
+			},
+			want:    url.URL{},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sigstore := &Sigstoreimpl{
+				rekorURL: tt.fields.rekorURL,
+			}
+			if err := sigstore.SetRekorURL(tt.args.rekorURL); (err != nil) != tt.wantErr {
+				t.Errorf("Sigstoreimpl.SetRekorURL() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !reflect.DeepEqual(sigstore.rekorURL, tt.want) {
+				t.Errorf("Sigstoreimpl.SetRekorURL() = %v, want %v", sigstore.rekorURL, tt.want)
 			}
 		})
 	}
