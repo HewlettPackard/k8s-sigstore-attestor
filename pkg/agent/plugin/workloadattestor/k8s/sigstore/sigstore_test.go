@@ -392,7 +392,7 @@ func TestSigstoreimpl_ExtractSelectorsFromSignatures(t *testing.T) {
 						cert: &x509.Certificate{
 							EmailAddresses: []string{
 								"spirex@example.com",
-								"hpe@example.com",
+								"spirex2@example.com",
 							},
 						},
 						bundle: &oci.Bundle{
