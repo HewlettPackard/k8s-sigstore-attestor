@@ -27,8 +27,6 @@ add_entry_for_workload spire example-workload-signed spiffe://example.org/ns/def
 add_entry_for_workload spire example-workload-unsigned spiffe://example.org/ns/default/sa/default/workload-unsigned
 add_entry_for_workload spire example-workload-signed-wrong-subject spiffe://example.org/ns/default/sa/default/workload-signed-wrong-subject
 
-
-
 add_entry_for_workload_with_extra_selectors() {
     ns=$1
     app_name=$2
@@ -53,4 +51,4 @@ add_entry_for_workload_with_extra_selectors() {
     fail-now "Failed creating extra entry for workload "
 }
 
-add_entry_for_workload_with_extra_selectors spire example-workload-signed-extra-selectors spiffe://example.org/ns/default/sa/default/workload-signed-extra-selectors MEUCIG6n/ocQSOvznvs/Co/tmp5tY5tDb4Zl+3un5X+whQddAiEA4mHVOBBT9XW086M2dM8RyjutBdMrJxcJB5wHYFyzzzs= c0d23d6ad406973f9559f3ba2d1ca01f84147d8ffc5b8445c224f98b9591801d 1638297518
+add_entry_for_workload_with_extra_selectors spire example-workload-signed-extra spiffe://example.org/ns/default/sa/default/workload-signed-extra MEUCIG6n/ocQSOvznvs/Co/tmp5tY5tDb4Zl+3un5X+whQddAiEA4mHVOBBT9XW086M2dM8RyjutBdMrJxcJB5wHYFyzzzs= c0d23d6ad406973f9559f3ba2d1ca01f84147d8ffc5b8445c224f98b9591801d 1638297518
