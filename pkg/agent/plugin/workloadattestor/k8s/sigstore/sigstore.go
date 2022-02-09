@@ -85,7 +85,6 @@ func (sigstore *Sigstoreimpl) FetchImageSignatures(imageName string) ([]oci.Sign
 
 	// Set the rekor client
 	co.RekorClient = rekor.NewHTTPClientWithConfig(nil, rekor.DefaultTransportConfig().WithBasePath(sigstore.rekorURL.Path).WithHost(sigstore.rekorURL.Host))
-	// TODO: move to config handling
 
 	co.RootCerts = fulcio.GetRoots()
 
