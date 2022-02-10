@@ -15,6 +15,7 @@ var (
 		cluster = "CLUSTER"
 		server_socket_path = "SOCKETPATH"
 		mode = "crd"
+		check_signature_enabled = true
 	`
 
 	minimalWithTemplate = testMinimalCRDConfig + `
@@ -41,13 +42,14 @@ func TestLoadModeCRD(t *testing.T) {
 
 	require.Equal(&CRDMode{
 		CommonMode: CommonMode{
-			ServerSocketPath:   "SOCKETPATH",
-			ServerAddress:      "unix://SOCKETPATH",
-			TrustDomain:        "TRUSTDOMAIN",
-			Cluster:            "CLUSTER",
-			LogLevel:           defaultLogLevel,
-			Mode:               "crd",
-			DisabledNamespaces: []string{"kube-system", "kube-public"},
+			ServerSocketPath:      "SOCKETPATH",
+			ServerAddress:         "unix://SOCKETPATH",
+			TrustDomain:           "TRUSTDOMAIN",
+			Cluster:               "CLUSTER",
+			LogLevel:              defaultLogLevel,
+			Mode:                  "crd",
+			DisabledNamespaces:    []string{"kube-system", "kube-public"},
+			CheckSignatureEnabled: true,
 		},
 		AddSvcDNSName:      true,
 		MetricsBindAddr:    ":8080",
@@ -70,13 +72,14 @@ func TestLoadModeCRD(t *testing.T) {
 			in:   minimalWithTemplate,
 			out: &CRDMode{
 				CommonMode: CommonMode{
-					LogLevel:           defaultLogLevel,
-					ServerSocketPath:   "SOCKETPATH",
-					ServerAddress:      "unix://SOCKETPATH",
-					TrustDomain:        "TRUSTDOMAIN",
-					Cluster:            "CLUSTER",
-					Mode:               "crd",
-					DisabledNamespaces: []string{"kube-system", "kube-public"},
+					LogLevel:              defaultLogLevel,
+					ServerSocketPath:      "SOCKETPATH",
+					ServerAddress:         "unix://SOCKETPATH",
+					TrustDomain:           "TRUSTDOMAIN",
+					Cluster:               "CLUSTER",
+					Mode:                  "crd",
+					DisabledNamespaces:    []string{"kube-system", "kube-public"},
+					CheckSignatureEnabled: true,
 				},
 				AddSvcDNSName:      true,
 				LeaderElection:     false,
@@ -109,17 +112,19 @@ func TestLoadModeCRD(t *testing.T) {
 				webhook_enabled = false
 				mode = "crd"
 				identity_template = "IDENTITYTEMPLATE"
+				check_signature_enabled = false
 			`,
 			out: &CRDMode{
 				CommonMode: CommonMode{
-					LogLevel:           "LEVELOVERRIDE",
-					LogPath:            "PATHOVERRIDE",
-					ServerSocketPath:   "SOCKETPATHOVERRIDE",
-					ServerAddress:      "unix://SOCKETPATHOVERRIDE",
-					TrustDomain:        "TRUSTDOMAINOVERRIDE",
-					Cluster:            "CLUSTEROVERRIDE",
-					Mode:               "crd",
-					DisabledNamespaces: []string{"kube-system", "kube-public"},
+					LogLevel:              "LEVELOVERRIDE",
+					LogPath:               "PATHOVERRIDE",
+					ServerSocketPath:      "SOCKETPATHOVERRIDE",
+					ServerAddress:         "unix://SOCKETPATHOVERRIDE",
+					TrustDomain:           "TRUSTDOMAINOVERRIDE",
+					Cluster:               "CLUSTEROVERRIDE",
+					Mode:                  "crd",
+					DisabledNamespaces:    []string{"kube-system", "kube-public"},
+					CheckSignatureEnabled: false,
 				},
 				AddSvcDNSName:      false,
 				LeaderElection:     false,
@@ -144,13 +149,14 @@ func TestLoadModeCRD(t *testing.T) {
 			`,
 			out: &CRDMode{
 				CommonMode: CommonMode{
-					LogLevel:           "info",
-					ServerSocketPath:   "SOCKETPATH",
-					ServerAddress:      "unix://SOCKETPATH",
-					TrustDomain:        "TRUSTDOMAIN",
-					Cluster:            "CLUSTER",
-					Mode:               "crd",
-					DisabledNamespaces: []string{"kube-system", "kube-public"},
+					LogLevel:              "info",
+					ServerSocketPath:      "SOCKETPATH",
+					ServerAddress:         "unix://SOCKETPATH",
+					TrustDomain:           "TRUSTDOMAIN",
+					Cluster:               "CLUSTER",
+					Mode:                  "crd",
+					DisabledNamespaces:    []string{"kube-system", "kube-public"},
+					CheckSignatureEnabled: true,
 				},
 				AddSvcDNSName:         true,
 				MetricsBindAddr:       ":8080",
@@ -177,13 +183,14 @@ func TestLoadModeCRD(t *testing.T) {
 			`,
 			out: &CRDMode{
 				CommonMode: CommonMode{
-					LogLevel:           "info",
-					ServerSocketPath:   "SOCKETPATH",
-					ServerAddress:      "unix://SOCKETPATH",
-					TrustDomain:        "TRUSTDOMAIN",
-					Cluster:            "CLUSTER",
-					Mode:               "crd",
-					DisabledNamespaces: []string{"kube-system", "kube-public"},
+					LogLevel:              "info",
+					ServerSocketPath:      "SOCKETPATH",
+					ServerAddress:         "unix://SOCKETPATH",
+					TrustDomain:           "TRUSTDOMAIN",
+					Cluster:               "CLUSTER",
+					Mode:                  "crd",
+					DisabledNamespaces:    []string{"kube-system", "kube-public"},
+					CheckSignatureEnabled: true,
 				},
 				AddSvcDNSName:      true,
 				MetricsBindAddr:    ":8080",
@@ -204,13 +211,14 @@ func TestLoadModeCRD(t *testing.T) {
 			`,
 			out: &CRDMode{
 				CommonMode: CommonMode{
-					LogLevel:           "info",
-					ServerSocketPath:   "SOCKETPATH",
-					ServerAddress:      "unix://SOCKETPATH",
-					TrustDomain:        "TRUSTDOMAIN",
-					Cluster:            "CLUSTER",
-					Mode:               "crd",
-					DisabledNamespaces: []string{"kube-system", "kube-public"},
+					LogLevel:              "info",
+					ServerSocketPath:      "SOCKETPATH",
+					ServerAddress:         "unix://SOCKETPATH",
+					TrustDomain:           "TRUSTDOMAIN",
+					Cluster:               "CLUSTER",
+					Mode:                  "crd",
+					DisabledNamespaces:    []string{"kube-system", "kube-public"},
+					CheckSignatureEnabled: true,
 				},
 				IdentityTemplate:   "ns/{{.Pod.namespace}}/sa/{{.Pod.service_account}}",
 				AddSvcDNSName:      true,
@@ -258,6 +266,7 @@ func TestLoadModeCRD(t *testing.T) {
 				cluster = "CLUSTER"
 				mode = "crd"
 				identity_template = "region/{{ .Context.region}}"
+				check_signature_enabled = true
 			`,
 			err: "identity_template references non-existing context",
 		},
@@ -269,6 +278,7 @@ func TestLoadModeCRD(t *testing.T) {
 				cluster = "CLUSTER"
 				mode = "crd"
 				identity_template = "region/{{.Context.region}}"
+				check_signature_enabled = true
 			`,
 			err: "identity_template references non-existing context",
 		},
