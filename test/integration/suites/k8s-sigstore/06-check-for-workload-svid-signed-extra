@@ -3,7 +3,7 @@
 source init-kubectl
 source check_for_workload_svid
 
-check_for_workload_svid "spiffe://example.org/ns/default/sa/default/-extra-selectors" example-workload-signed-extra
+check_for_workload_svid "spiffe://example.org/ns/default/sa/default/workload-signed-extra" example-workload-signed-extra
 
 if [ "${DONE}" -eq 1 ]; then
     log-info "SPIFFE ID found."
