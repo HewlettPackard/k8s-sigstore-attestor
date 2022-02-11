@@ -120,8 +120,8 @@ type HCLConfig struct {
 	// RekorURL is the URL for the rekor server to use to verify signatures and public keys
 	RekorURL string `hcl:"rekor_url"`
 
-	// SkippedImageSubjects is a list containing images that should skip sigstore verification
-	SkippedImageSubjects []string `hcl:"skip_signature_verification_image_list"`
+	// SkippedImages is a list of images that should skip sigstore verification
+	SkippedImages []string `hcl:"skip_signature_verification_image_list"`
 
 	// AllowedSubjects is a flag indicating whether signature subjects should be compared against the allow-list
 	AllowedSubjectListEnabled bool `hcl:"enable_allowed_subjects_list"`
@@ -144,8 +144,8 @@ type k8sConfig struct {
 	NodeName                string
 	ReloadInterval          time.Duration
 
-	RekorURL             string
-	SkippedImageSubjects []string
+	RekorURL      string
+	SkippedImages []string
 
 	AllowedSubjectListEnabled bool
 	AllowedSubjects           []string
@@ -216,21 +216,13 @@ func (p *Plugin) Attest(ctx context.Context, req *workloadattestorv1.AttestReque
 			switch lookup {
 			case containerInPod:
 				selectors := getSelectorValuesFromPodInfo(&item, status)
-				skipImageSelectors, _ := p.sigstore.ShouldSkipImage(*status)
-				if skipImageSelectors {
-					selectors = append(selectors, "signature-verified:true")
+				sigstoreSelectors, err := p.sigstore.AttestContainerSignatures(status.ImageID)
+				if err != nil {
+					log.Error("Error retrieving signature payload: ", err.Error())
 				} else {
-					signatures, err := p.sigstore.FetchImageSignatures(status.ImageID, p.config.RekorURL)
-					if err != nil {
-						log.Error("Error retrieving signature payload: ", err.Error())
-					} else if len(signatures) > 0 {
-						filteredSelectors := p.sigstore.ExtractSelectorsFromSignatures(signatures)
-						if len(filteredSelectors) > 0 {
-							selectors = append(selectors, filteredSelectors...)
-							selectors = append(selectors, "signature-verified:true")
-						}
-					}
+					selectors = append(selectors, sigstoreSelectors...)
 				}
+
 				return &workloadattestorv1.AttestResponse{
 					SelectorValues: selectors,
 				}, nil
@@ -328,7 +320,7 @@ func (p *Plugin) Configure(ctx context.Context, req *configv1.ConfigureRequest) 
 		ReloadInterval:          reloadInterval,
 
 		RekorURL:                  config.RekorURL,
-		SkippedImageSubjects:      config.SkippedImageSubjects,
+		SkippedImages:             config.SkippedImages,
 		AllowedSubjectListEnabled: config.AllowedSubjectListEnabled,
 		AllowedSubjects:           config.AllowedSubjects,
 	}
@@ -336,9 +328,10 @@ func (p *Plugin) Configure(ctx context.Context, req *configv1.ConfigureRequest) 
 		return nil, err
 	}
 
+	// Configure sigstore settings
 	p.sigstore.ClearSkipList()
-	if c.SkippedImageSubjects != nil {
-		for _, imageID := range c.SkippedImageSubjects {
+	if c.SkippedImages != nil {
+		for _, imageID := range c.SkippedImages {
 			p.sigstore.AddSkippedImage(imageID)
 		}
 	}
@@ -348,6 +341,12 @@ func (p *Plugin) Configure(ctx context.Context, req *configv1.ConfigureRequest) 
 	if c.AllowedSubjects != nil {
 		for _, subject := range c.AllowedSubjects {
 			p.sigstore.AddAllowedSubject(subject)
+		}
+	}
+	if c.RekorURL != "" {
+		err = p.sigstore.SetRekorURL(c.RekorURL)
+		if err != nil {
+			return nil, err
 		}
 	}
 
