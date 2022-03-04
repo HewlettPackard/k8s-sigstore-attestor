@@ -3,7 +3,7 @@
 source init-kubectl
 source check_for_workload_svid
 
-check_for_workload_svid "spiffe://example.org/ns/spire/sa/workload-unsigned-skipped" example-workload-unsigned-skipped
+check_for_workload_svid "spiffe://example.org/ns/spire/sa/example-workload-unsigned-skipped" example-workload-unsigned-skipped
 
 if [ "${DONE}" -eq 1 ]; then
     log-info "SPIFFE ID found."
