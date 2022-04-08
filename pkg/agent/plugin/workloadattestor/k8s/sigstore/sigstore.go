@@ -219,7 +219,7 @@ func (sigstore *Sigstoreimpl) SelectorValuesFromSignature(signature oci.Signatur
 	var selectors []string
 	if !suppress {
 		selectors = []string{
-			fmt.Sprintf("%s:image-signature-subject:%s", containerID, subject ),
+			fmt.Sprintf("%s:image-signature-subject:%s", containerID, subject),
 		}
 		bundle, err := signature.Bundle()
 		if err != nil {
