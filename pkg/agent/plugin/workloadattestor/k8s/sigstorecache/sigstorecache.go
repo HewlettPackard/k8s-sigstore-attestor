@@ -6,10 +6,6 @@ import (
 	"github.com/sigstore/cosign/pkg/oci"
 )
 
-const (
-	maximumAmountCache = 10
-)
-
 // Item represents a key-value pair
 type Item struct {
 	Key   string
@@ -29,7 +25,7 @@ type Cacheimpl struct {
 }
 
 // NewCache creates and returns a new cache
-func NewCache() Cache {
+func NewCache(maximumAmountCache int) Cache {
 	return &Cacheimpl{
 		size:  maximumAmountCache,
 		items: list.New(),

@@ -51,6 +51,7 @@ type containerLookup int
 const (
 	containerInPod = iota
 	containerNotInPod
+	maximumAmountCache = 10
 )
 
 func BuiltIn() catalog.BuiltIn {
@@ -171,7 +172,7 @@ type Plugin struct {
 }
 
 func New() *Plugin {
-	newcache := sigstorecache.NewCache()
+	newcache := sigstorecache.NewCache(maximumAmountCache)
 	return &Plugin{
 		fs:       cgroups.OSFileSystem{},
 		clock:    clock.New(),
