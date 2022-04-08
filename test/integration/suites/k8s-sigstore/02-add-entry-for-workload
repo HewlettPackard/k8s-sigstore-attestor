@@ -13,7 +13,6 @@ add_entry_for_workload() {
     CLUSTERNODESPIFFEID="spiffe://example.org/k8s-workload-registrar/example-cluster/node"
     WORKLOAD_POD=$(${KUBEBIN} -n${ns} get pod -l app=${app_name} -o jsonpath="{.items[0].metadata.name}")
     CONTAINER_ID=$(${KUBEBIN} -n${ns} get pod -l app=${app_name} -o jsonpath='{range .items[*]}{range .status.containerStatuses[*]}{"\tname: "}{.containerID}{" image: "}{.image}{" pod: "}{..name}{"\n"}{end}' | awk '{print $2}')
-    echo "CONTAINER_ID=${CONTAINER_ID}\n"
     if ${KUBEBIN} -n${ns} exec ${SERVER_POD} -- /opt/spire/bin/spire-server entry create \
     -spiffeID ${workload_spiffe_id} \
     -parentID ${CLUSTERNODESPIFFEID} \
