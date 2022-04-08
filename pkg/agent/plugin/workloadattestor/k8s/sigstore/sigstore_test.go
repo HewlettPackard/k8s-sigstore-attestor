@@ -336,7 +336,7 @@ func TestSigstoreimpl_ExtractSelectorsFromSignatures(t *testing.T) {
 				},
 			},
 			containerID: "000000",
-			want:        []string{"image-signature-subject:spirex@example.com:000000", "image-signature-content:MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smA=:000000", "image-signature-logid:samplelogID:000000", "image-signature-integrated-time:12345:000000"},
+			want:        []string{"000000:image-signature-subject:spirex@example.com", "000000:image-signature-content:MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smA=", "000000:image-signature-logid:samplelogID", "000000:image-signature-integrated-time:12345"},
 		},
 		{
 			name: "extract selector from image signature array with multiple entries",
@@ -368,7 +368,7 @@ func TestSigstoreimpl_ExtractSelectorsFromSignatures(t *testing.T) {
 				},
 			},
 			containerID: "111111",
-			want:        []string{"image-signature-subject:spirex1@example.com:111111", "image-signature-content:MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smA=:111111", "image-signature-logid:samplelogID1:111111", "image-signature-integrated-time:12345:111111", "image-signature-subject:spirex2@example.com:111111", "image-signature-content:MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smB=:111111", "image-signature-logid:samplelogID2:111111", "image-signature-integrated-time:12346:111111"},
+			want:        []string{"111111:image-signature-subject:spirex1@example.com", "111111:image-signature-content:MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smA=", "111111:image-signature-logid:samplelogID1", "111111:image-signature-integrated-time:12345", "111111:image-signature-subject:spirex2@example.com", "111111:image-signature-content:MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smB=", "111111:image-signature-logid:samplelogID2", "111111:image-signature-integrated-time:12346"},
 		},
 		{
 			name: "with invalid payload",
@@ -411,7 +411,7 @@ func TestSigstoreimpl_ExtractSelectorsFromSignatures(t *testing.T) {
 				},
 			},
 			containerID: "333333",
-			want:        []string{"image-signature-subject:spirex@example.com:333333", "image-signature-content:MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smA=:333333", "image-signature-logid:samplelogID:333333", "image-signature-integrated-time:12345:333333"},
+			want:        []string{"333333:image-signature-subject:spirex@example.com", "333333:image-signature-content:MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smA=", "333333:image-signature-logid:samplelogID", "333333:image-signature-integrated-time:12345"},
 		},
 		{
 			name: "extract selector from image signature with URI certificate",
@@ -447,7 +447,7 @@ func TestSigstoreimpl_ExtractSelectorsFromSignatures(t *testing.T) {
 				},
 			},
 			containerID: "444444",
-			want:        []string{"image-signature-subject:https://www.example.com/somepath1:444444", "image-signature-content:MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smA=:444444", "image-signature-logid:samplelogID:444444", "image-signature-integrated-time:12345:444444"},
+			want:        []string{"444444:image-signature-subject:https://www.example.com/somepath1", "444444:image-signature-content:MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smA=", "444444:image-signature-logid:samplelogID", "444444:image-signature-integrated-time:12345"},
 		},
 		{
 			name: "extract selector from empty array",
@@ -1276,7 +1276,7 @@ func TestSigstoreimpl_SelectorValuesFromSignature(t *testing.T) {
 				},
 			},
 			containerID: "000000",
-			want:        []string{"image-signature-subject:spirex@example.com:000000", "image-signature-content:MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smA=:000000", "image-signature-logid:samplelogID:000000", "image-signature-integrated-time:12345:000000"},
+			want:        []string{"000000:image-signature-subject:spirex@example.com", "000000:image-signature-content:MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smA=", "000000:image-signature-logid:samplelogID", "000000:image-signature-integrated-time:12345"},
 		},
 		{
 			name: "selector from signature, empty subject",
@@ -1336,7 +1336,7 @@ func TestSigstoreimpl_SelectorValuesFromSignature(t *testing.T) {
 				},
 			},
 			containerID: "333333",
-			want:        []string{"image-signature-subject:spirex@example.com:333333", "image-signature-content:MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smA=:333333", "image-signature-logid:samplelogID:333333", "image-signature-integrated-time:12345:333333"},
+			want:        []string{"333333:image-signature-subject:spirex@example.com", "333333image-signature-content:MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smA=", "333333image-signature-logid:samplelogID", "333333image-signature-integrated-time:12345"},
 		},
 		{
 			name: "selector from signature, allowedlist enabled, in allowlist, empty content",
@@ -1359,7 +1359,7 @@ func TestSigstoreimpl_SelectorValuesFromSignature(t *testing.T) {
 				},
 			},
 			containerID: "444444",
-			want:        []string{"image-signature-subject:spirex@example.com:444444", "image-signature-logid:samplelogID:444444", "image-signature-integrated-time:12345:444444"},
+			want:        []string{"444444:image-signature-subject:spirex@example.com", "444444:image-signature-logid:samplelogID", "444444:image-signature-integrated-time:12345"},
 		},
 		{
 			name: "selector from signature, no bundle",
@@ -1373,7 +1373,7 @@ func TestSigstoreimpl_SelectorValuesFromSignature(t *testing.T) {
 				},
 			},
 			containerID: "555555",
-			want:        []string{"image-signature-subject:spirex@example.com:555555"},
+			want:        []string{"555555:image-signature-subject:spirex@example.com"},
 		},
 	}
 	for _, tt := range tests {
@@ -1540,7 +1540,7 @@ func TestSigstoreimpl_AttestContainerSignatures(t *testing.T) {
 				ContainerID: "000000",
 			},
 			want: []string{
-				"image-signature-subject:spirex@example.com:000000", "image-signature-content:MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smA=:000000", "image-signature-logid:samplelogID:000000", "image-signature-integrated-time:12345:000000", "signature-verified:true:000000",
+				"000000:image-signature-subject:spirex@example.com", "000000:image-signature-content:MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smA=", "000000:image-signature-logid:samplelogID", "000000:image-signature-integrated-time:12345", "000000:signature-verified:true",
 			},
 			wantErr: false,
 		},
