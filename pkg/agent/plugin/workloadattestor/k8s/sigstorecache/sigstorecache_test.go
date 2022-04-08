@@ -43,7 +43,6 @@ func (s signature) Bundle() (*oci.Bundle, error) {
 }
 
 func TestNewCache(t *testing.T) {
-
 	tests := []struct {
 		name string
 		want Cache

@@ -55,7 +55,6 @@ func (s signature) Bundle() (*oci.Bundle, error) {
 }
 
 func TestNew(t *testing.T) {
-
 	newcache := sigstorecache.NewCache(maximumAmountCache)
 
 	tests := []struct {
