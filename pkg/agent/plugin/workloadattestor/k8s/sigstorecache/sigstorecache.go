@@ -53,7 +53,8 @@ func (c *Cacheimpl) GetSignature(key string) *Item {
 func (c *Cacheimpl) PutSignature(i Item) {
 	e := c.getElement(i.Key)
 	if e != nil {
-		c.items.MoveToFront(e)
+		c.items.Remove(c.items.Back())
+		c.items.PushFront(i)
 		return
 	}
 

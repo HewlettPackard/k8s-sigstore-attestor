@@ -18,6 +18,10 @@ import (
 	"github.com/spiffe/spire/pkg/agent/plugin/workloadattestor/k8s/sigstorecache"
 )
 
+const (
+	maximumAmountCache = 10
+)
+
 type signature struct {
 	v1.Layer
 
@@ -52,7 +56,7 @@ func (s signature) Bundle() (*oci.Bundle, error) {
 
 func TestNew(t *testing.T) {
 
-	newcache := sigstorecache.NewCache()
+	newcache := sigstorecache.NewCache(maximumAmountCache)
 
 	tests := []struct {
 		name string
@@ -292,7 +296,7 @@ func TestSigstoreimpl_FetchImageSignatures(t *testing.T) {
 			sigstore := Sigstoreimpl{
 				verifyFunction:             tt.fields.verifyFunction,
 				fetchImageManifestFunction: tt.fields.fetchImageManifestFunction,
-				sigstorecache:              sigstorecache.NewCache(),
+				sigstorecache:              sigstorecache.NewCache(maximumAmountCache),
 			}
 			got, err := sigstore.FetchImageSignatures(tt.args.imageName)
 			if (err != nil) != tt.wantErr {
@@ -1583,7 +1587,7 @@ func TestSigstoreimpl_AttestContainerSignatures(t *testing.T) {
 				fetchImageManifestFunction: tt.fields.fetchImageManifestFunction,
 				skippedImages:              tt.fields.skippedImages,
 				rekorURL:                   tt.fields.rekorURL,
-				sigstorecache:              sigstorecache.NewCache(),
+				sigstorecache:              sigstorecache.NewCache(maximumAmountCache),
 			}
 			got, err := sigstore.AttestContainerSignatures(tt.args.imageID)
 			if (err != nil) != tt.wantErr {
