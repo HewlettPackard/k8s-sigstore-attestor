@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	maximumAmountCache = 3
+	maximumAmountCache = 10
 )
 
 // Item represents a key-value pair
