@@ -1336,7 +1336,7 @@ func TestSigstoreimpl_SelectorValuesFromSignature(t *testing.T) {
 				},
 			},
 			containerID: "333333",
-			want:        []string{"333333:image-signature-subject:spirex@example.com", "333333image-signature-content:MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smA=", "333333image-signature-logid:samplelogID", "333333image-signature-integrated-time:12345"},
+			want:        []string{"333333:image-signature-subject:spirex@example.com", "333333:image-signature-content:MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smA=", "333333:image-signature-logid:samplelogID", "333333:image-signature-integrated-time:12345"},
 		},
 		{
 			name: "selector from signature, allowedlist enabled, in allowlist, empty content",
