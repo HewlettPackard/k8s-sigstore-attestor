@@ -26,7 +26,6 @@ type Cache interface {
 type Cacheimpl struct {
 	size  int
 	items *list.List
-	//mutex sync.RWMutex
 }
 
 // NewCache creates and returns a new cache
@@ -34,16 +33,12 @@ func NewCache() Cache {
 	return &Cacheimpl{
 		size:  maximumAmountCache,
 		items: list.New(),
-		//mutex: sync.RWMutex{},
 	}
 }
 
 // Get returns an existing item from the cache.
 // Get also moves the existing item to the front of the items list to indicate that the existing item is recently used.
 func (c *Cacheimpl) GetSignature(key string) *Item {
-	//c.mutex.RLock()
-	//defer c.mutex.RUnlock()
-
 	e := c.getElement(key)
 	if e == nil {
 		return nil
@@ -60,9 +55,6 @@ func (c *Cacheimpl) GetSignature(key string) *Item {
 // Put removes the least recently used item from the items list when the cache is full.
 // Put pushes the new item to the front of the items list to indicate that the new item is recently used.
 func (c *Cacheimpl) PutSignature(i Item) {
-	//c.mutex.Lock()
-	//defer c.mutex.Unlock()
-
 	e := c.getElement(i.Key)
 	if e != nil {
 		c.items.MoveToFront(e)
