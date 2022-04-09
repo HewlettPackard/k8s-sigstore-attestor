@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"crypto/x509"
 	"reflect"
+	"sync"
 	"testing"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -52,6 +53,7 @@ func TestNewCache(t *testing.T) {
 			want: &Cacheimpl{
 				size:  3,
 				items: list.New(),
+				mutex: sync.RWMutex{},
 			},
 		},
 	}
