@@ -19,19 +19,27 @@ type Cache interface {
 	PutSignature(Item)
 }
 
+//
+type MapItem struct {
+	element *list.Element
+	item    *Item
+}
+
 // cache implements Cache interface
 type Cacheimpl struct {
-	size  int
-	items *list.List
-	mutex sync.RWMutex
+	size     int
+	items    *list.List
+	mutex    sync.RWMutex
+	itensMap map[string]MapItem
 }
 
 // NewCache creates and returns a new cache
 func NewCache(maximumAmountCache int) Cache {
 	return &Cacheimpl{
-		size:  maximumAmountCache,
-		items: list.New(),
-		mutex: sync.RWMutex{},
+		size:     maximumAmountCache,
+		items:    list.New(),
+		mutex:    sync.RWMutex{},
+		itensMap: make(map[string]MapItem),
 	}
 }
 
@@ -41,16 +49,14 @@ func (c *Cacheimpl) GetSignature(key string) *Item {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	e := c.getElement(key)
-	if e == nil {
+	e, present := c.itensMap[key]
+	if !present {
 		return nil
 	}
 
-	c.items.MoveToFront(e)
+	c.items.MoveToFront(e.element)
 
-	i := e.Value.(Item)
-
-	return &i
+	return e.item
 }
 
 // Put puts a new item into the cache.
@@ -60,28 +66,25 @@ func (c *Cacheimpl) PutSignature(i Item) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	e := c.getElement(i.Key)
-	if e != nil {
-		c.items.Remove(c.items.Back())
-		c.items.PushFront(i)
-		return
-	}
+	//e := c.getElement(c, i.Key)
 
-	if c.items.Len() == c.size {
-		c.items.Remove(c.items.Back())
-	}
+	e, present := c.itensMap[i.Key]
+	if present {
+		c.items.Remove(e.element)
+		c.itensMap[i.Key] = MapItem{
+			element: c.items.PushFront(i.Key),
+			item:    &i,
+		}
+	} else {
+		if c.items.Len() == c.size {
+			removed := c.items.Remove(c.items.Back())
+			delete(c.itensMap, removed.(string))
+		}
 
-	c.items.PushFront(i)
-}
-
-// getElement returns list element of an existing item
-func (c *Cacheimpl) getElement(key string) *list.Element {
-	for e := c.items.Front(); e != nil; e = e.Next() {
-		i := e.Value.(Item)
-		if i.Key == key {
-			return e
+		c.itensMap[i.Key] = MapItem{
+			element: c.items.PushFront(i.Key),
+			item:    &i,
 		}
 	}
 
-	return nil
 }

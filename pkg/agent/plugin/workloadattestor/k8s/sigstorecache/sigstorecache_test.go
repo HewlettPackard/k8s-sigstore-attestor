@@ -11,6 +11,92 @@ import (
 	"github.com/sigstore/cosign/pkg/oci"
 )
 
+var (
+	signature1 = Item{
+		Key: "signature1",
+		Value: []oci.Signature{
+			signature{
+				payload: []byte(`{
+				"critical": {
+					"identity": {
+						"docker-reference": "docker-registry.com/some/image"},
+						"image": {"docker-manifest-digest": "11111111111111"},
+						"type": "some type"
+					},
+					"optional": {
+						"subject": "spirex1@example.com"
+						}
+					},
+				}`),
+			},
+		},
+	}
+
+	signature2 = Item{
+		Key: "signature2",
+		Value: []oci.Signature{
+			signature{
+				payload: []byte(`{
+				"critical": {
+					"identity": {
+						"docker-reference": "docker-registry.com/some/image"},
+						"image": {"docker-manifest-digest2": "2222222222222"},
+						"type": "some type"
+					},
+					"optional": {
+						"subject": "spirex2@example.com"
+						},
+					},
+				},`),
+			},
+		},
+	}
+
+	signature3 = Item{
+		Key: "signature3",
+		Value: []oci.Signature{
+			signature{
+				payload: []byte(`{
+							"critical": {
+								"identity": {
+									"docker-reference": "docker-registry.com/some/image"
+								},
+								"image": {
+									"docker-manifest-digest3": "3333333333333"
+								},
+								"type": "some type"
+							}
+							"optional": {
+								"subject": "spirex3@example.com"
+							}
+						}`),
+			},
+		},
+	}
+
+	signature3_updated = Item{
+		Key: "signature3",
+		Value: []oci.Signature{
+			signature{
+				payload: []byte(`{
+								"critical": {
+									"identity": {
+										"docker-reference": "docker-registry.com/some/image"
+									},
+									"image": {
+										"docker-manifest-digest4": "4444444444444"
+									},
+									"type": "some type"
+								}
+								"optional": {
+									"subject": "spirex4@example.com"
+								}
+							}`),
+			},
+		},
+	}
+)
+
 type signature struct {
 	v1.Layer
 
@@ -51,9 +137,10 @@ func TestNewCache(t *testing.T) {
 		{
 			name: "New",
 			want: &Cacheimpl{
-				size:  3,
-				items: list.New(),
-				mutex: sync.RWMutex{},
+				size:     3,
+				items:    list.New(),
+				mutex:    sync.RWMutex{},
+				itensMap: make(map[string]MapItem),
 			},
 		},
 	}
@@ -67,80 +154,33 @@ func TestNewCache(t *testing.T) {
 }
 
 func TestCacheimpl_GetSignature(t *testing.T) {
-	cacheInstance := NewCache(3).(*Cacheimpl)
 
-	item1 := Item{
-		Key: "signature1",
-		Value: []oci.Signature{
-			signature{
-				payload: []byte(`{
-					"critical": {
-						"identity": {
-							"docker-reference": "docker-registry.com/some/image"},
-							"image": {"docker-manifest-digest": "11111111111111"},
-							"type": "some type"
-						},
-						"optional": {
-							"subject": "spirex1@example.com"
-							}
-						},
-					}`),
-			},
-		},
+	m := make(map[string]MapItem)
+	var items *list.List = list.New()
+
+	m[signature1.Key] = MapItem{
+		item:    &signature1,
+		element: items.PushFront(signature1.Key),
+	}
+	m[signature2.Key] = MapItem{
+		item:    &signature2,
+		element: items.PushFront(signature2.Key),
 	}
 
-	item2 := Item{
-		Key: "signature2",
-		Value: []oci.Signature{
-			signature{
-				payload: []byte(`{
-					"critical": {
-						"identity": {
-							"docker-reference": "docker-registry.com/some/image"},
-							"image": {"docker-manifest-digest2": "2222222222222"},
-							"type": "some type"
-						},
-						"optional": {
-							"subject": "spirex2@example.com"
-							},
-						},
-					},`),
-			},
-		},
+	cacheInstance := &Cacheimpl{
+		size:     3,
+		items:    items,
+		mutex:    sync.RWMutex{},
+		itensMap: m,
 	}
 
-	item3 := Item{
-		Key: "signature3",
-		Value: []oci.Signature{
-			signature{
-				payload: []byte(`{
-								"critical": {
-									"identity": {
-										"docker-reference": "docker-registry.com/some/image"
-									},
-									"image": {
-										"docker-manifest-digest3": "3333333333333"
-									},
-									"type": "some type"
-								}
-								"optional": {
-									"subject": "spirex3@example.com"
-								}
-							}`),
-			},
-		},
-	}
-
-	cacheInstance.PutSignature(item1)
-	cacheInstance.PutSignature(item2)
-
-	item4 := cacheInstance.GetSignature(item3.Key)
+	item4 := cacheInstance.GetSignature(signature3.Key)
 	if item4 != nil {
 		t.Error("a non-existing item's key should return a nil item")
 	}
 
-	item5 := cacheInstance.GetSignature(item1.Key)
-	if !reflect.DeepEqual(item5.Value, item1.Value) {
+	item5 := cacheInstance.GetSignature(signature1.Key)
+	if !reflect.DeepEqual(item5.Value, signature1.Value) {
 		t.Error("an existing items key's should return the existing item")
 	}
 }
@@ -148,109 +188,26 @@ func TestCacheimpl_GetSignature(t *testing.T) {
 func TestCacheimpl_PutSignature(t *testing.T) {
 	cacheInstance := NewCache(2).(*Cacheimpl)
 
-	item1 := Item{
-		Key: "signature1",
-		Value: []oci.Signature{
-			signature{
-				payload: []byte(`{
-					"critical": {
-						"identity": {
-							"docker-reference": "docker-registry.com/some/image"},
-							"image": {"docker-manifest-digest": "11111111111111"},
-							"type": "some type"
-						},
-						"optional": {
-							"subject": "spirex1@example.com"
-							}
-						},
-					}`),
-			},
-		},
-	}
-
-	item2 := Item{
-		Key: "signature2",
-		Value: []oci.Signature{
-			signature{
-				payload: []byte(`{
-					"critical": {
-						"identity": {
-							"docker-reference": "docker-registry.com/some/image"},
-							"image": {"docker-manifest-digest2": "2222222222222"},
-							"type": "some type"
-						},
-						"optional": {
-							"subject": "spirex2@example.com"
-							},
-						},
-					},`),
-			},
-		},
-	}
-
-	item3 := Item{
-		Key: "signature3",
-		Value: []oci.Signature{
-			signature{
-				payload: []byte(`{
-								"critical": {
-									"identity": {
-										"docker-reference": "docker-registry.com/some/image"
-									},
-									"image": {
-										"docker-manifest-digest3": "3333333333333"
-									},
-									"type": "some type"
-								}
-								"optional": {
-									"subject": "spirex3@example.com"
-								}
-							}`),
-			},
-		},
-	}
-
-	item4 := Item{
-		Key: "signature3",
-		Value: []oci.Signature{
-			signature{
-				payload: []byte(`{
-								"critical": {
-									"identity": {
-										"docker-reference": "docker-registry.com/some/image"
-									},
-									"image": {
-										"docker-manifest-digest4": "4444444444444"
-									},
-									"type": "some type"
-								}
-								"optional": {
-									"subject": "spirex4@example.com"
-								}
-							}`),
-			},
-		},
-	}
-	cacheInstance.PutSignature(item1)
-	cacheInstance.PutSignature(item2)
+	cacheInstance.PutSignature(signature1)
+	cacheInstance.PutSignature(signature2)
 
 	if cacheInstance.items.Len() != 2 {
 		t.Error("item count should be 2 after putting 2 keys", cacheInstance.items.Len())
 	}
 
-	cacheInstance.PutSignature(item1)
+	cacheInstance.PutSignature(signature1)
 	if cacheInstance.items.Len() != 2 {
 		t.Error("item count should stay the same after putting an existing key", cacheInstance.items.Len())
 	}
 
-	cacheInstance.PutSignature(item3)
+	cacheInstance.PutSignature(signature3)
 	if cacheInstance.items.Len() != 2 {
 		t.Error("item count should stay the same after putting a new key that overflows the cache", cacheInstance.items.Len())
 	}
 
-	cacheInstance.PutSignature(item4)
-	wantcached := cacheInstance.GetSignature(item4.Key)
-	if !reflect.DeepEqual(wantcached.Value, item4.Value) {
+	cacheInstance.PutSignature(signature3_updated)
+	wantcached := cacheInstance.GetSignature(signature3.Key)
+	if !reflect.DeepEqual(wantcached.Value, signature3_updated.Value) {
 		t.Error("an existing items key's should return the existing item")
 	}
 }
