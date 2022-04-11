@@ -174,15 +174,34 @@ func TestCacheimpl_GetSignature(t *testing.T) {
 		itensMap: m,
 	}
 
-	item4 := cacheInstance.GetSignature(signature3.Key)
-	if item4 != nil {
-		t.Error("a non-existing item's key should return a nil item")
+	tests := []struct {
+		name         string
+		want         *Item
+		key          string
+		errorMessage string
+	}{
+		{
+			name:         "Non existing entry",
+			want:         nil,
+			key:          signature3.Key,
+			errorMessage: "A non-existing item's key should return a nil item.",
+		},
+		{
+			name:         "Existing entry",
+			want:         &signature1,
+			key:          signature1.Key,
+			errorMessage: "An existing items key's should return the existing item",
+		},
 	}
 
-	item5 := cacheInstance.GetSignature(signature1.Key)
-	if !reflect.DeepEqual(item5.Value, signature1.Value) {
-		t.Error("an existing items key's should return the existing item")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := cacheInstance.GetSignature(tt.key); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("%v Got: %v Want: %v", tt.errorMessage, got, tt.want)
+			}
+		})
 	}
+
 }
 
 func TestCacheimpl_PutSignature(t *testing.T) {
