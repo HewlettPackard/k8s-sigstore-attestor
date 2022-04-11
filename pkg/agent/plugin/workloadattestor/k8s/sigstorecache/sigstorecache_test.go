@@ -205,28 +205,80 @@ func TestCacheimpl_GetSignature(t *testing.T) {
 }
 
 func TestCacheimpl_PutSignature(t *testing.T) {
-	cacheInstance := NewCache(2).(*Cacheimpl)
 
-	cacheInstance.PutSignature(signature1)
-	cacheInstance.PutSignature(signature2)
+	m := make(map[string]MapItem)
+	var items *list.List = list.New()
 
-	if cacheInstance.items.Len() != 2 {
-		t.Error("item count should be 2 after putting 2 keys", cacheInstance.items.Len())
+	cacheInstance := &Cacheimpl{
+		size:     2,
+		items:    items,
+		mutex:    sync.RWMutex{},
+		itensMap: m,
 	}
 
-	cacheInstance.PutSignature(signature1)
-	if cacheInstance.items.Len() != 2 {
-		t.Error("item count should stay the same after putting an existing key", cacheInstance.items.Len())
+	tests := []struct {
+		name       string
+		item       *Item
+		wantLength int
+		wantKey    string
+		wantValue  *Item
+	}{
+		{
+			name:       "Put first element",
+			item:       &signature1,
+			wantLength: 1,
+			wantKey:    signature1.Key,
+			wantValue:  &signature1,
+		},
+		{
+			name:       "Put first element again",
+			item:       &signature1,
+			wantLength: 1,
+			wantKey:    signature1.Key,
+			wantValue:  &signature1,
+		},
+		{
+			name:       "Put second element",
+			item:       &signature2,
+			wantLength: 2,
+			wantKey:    signature2.Key,
+			wantValue:  &signature2,
+		},
+		{
+			name:       "Overflow cache",
+			item:       &signature3,
+			wantLength: 2,
+			wantKey:    signature3.Key,
+			wantValue:  &signature3,
+		},
+		{
+			name:       "Update entry",
+			item:       &signature3_updated,
+			wantLength: 2,
+			wantKey:    signature3.Key,
+			wantValue:  &signature3_updated,
+		},
 	}
 
-	cacheInstance.PutSignature(signature3)
-	if cacheInstance.items.Len() != 2 {
-		t.Error("item count should stay the same after putting a new key that overflows the cache", cacheInstance.items.Len())
+	putKeys := 0
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cacheInstance.PutSignature(*tt.item)
+			putKeys++
+			gotLen := cacheInstance.items.Len()
+			if gotLen != tt.wantLength {
+				t.Errorf("Item count should be %v after putting %v keys", tt.wantLength, putKeys)
+			}
+			gotItem, present := m[tt.wantKey]
+			if !present {
+				t.Errorf("Key put but not found: %v", tt.wantKey)
+			}
+
+			if !reflect.DeepEqual(gotItem.item, tt.wantValue) {
+				t.Errorf("Value different than expected. \nGot: %v \nWant:%v", gotItem.item, tt.wantValue)
+			}
+
+		})
 	}
 
-	cacheInstance.PutSignature(signature3_updated)
-	wantcached := cacheInstance.GetSignature(signature3.Key)
-	if !reflect.DeepEqual(wantcached.Value, signature3_updated.Value) {
-		t.Error("an existing items key's should return the existing item")
-	}
 }
