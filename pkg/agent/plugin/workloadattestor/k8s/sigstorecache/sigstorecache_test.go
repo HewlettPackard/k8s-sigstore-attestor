@@ -154,7 +154,6 @@ func TestNewCache(t *testing.T) {
 }
 
 func TestCacheimpl_GetSignature(t *testing.T) {
-
 	m := make(map[string]MapItem)
 	items := list.New()
 
@@ -201,11 +200,9 @@ func TestCacheimpl_GetSignature(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestCacheimpl_PutSignature(t *testing.T) {
-
 	m := make(map[string]MapItem)
 	items := list.New()
 
@@ -277,8 +274,6 @@ func TestCacheimpl_PutSignature(t *testing.T) {
 			if !reflect.DeepEqual(gotItem.item, tt.wantValue) {
 				t.Errorf("Value different than expected. \nGot: %v \nWant:%v", gotItem.item, tt.wantValue)
 			}
-
 		})
 	}
-
 }
