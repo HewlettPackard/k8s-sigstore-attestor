@@ -18,7 +18,4 @@ nodes:
   extraMounts:
   - containerPath: /etc/kubernetes/pki/admctrl
     hostPath: CONFDIR/admctrl
-containerdConfigPatches:
-- |-
-  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:5000"]
-    endpoint = ["http://willian.alves.com:5000"]
+    
