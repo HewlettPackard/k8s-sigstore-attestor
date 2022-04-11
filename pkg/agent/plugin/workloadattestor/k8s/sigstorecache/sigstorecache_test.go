@@ -74,7 +74,7 @@ var (
 		},
 	}
 
-	signature3_updated = Item{
+	signature3Updated = Item{
 		Key: "signature3",
 		Value: []oci.Signature{
 			signature{
@@ -156,7 +156,7 @@ func TestNewCache(t *testing.T) {
 func TestCacheimpl_GetSignature(t *testing.T) {
 
 	m := make(map[string]MapItem)
-	var items *list.List = list.New()
+	items := list.New()
 
 	m[signature1.Key] = MapItem{
 		item:    &signature1,
@@ -207,7 +207,7 @@ func TestCacheimpl_GetSignature(t *testing.T) {
 func TestCacheimpl_PutSignature(t *testing.T) {
 
 	m := make(map[string]MapItem)
-	var items *list.List = list.New()
+	items := list.New()
 
 	cacheInstance := &Cacheimpl{
 		size:     2,
@@ -253,10 +253,10 @@ func TestCacheimpl_PutSignature(t *testing.T) {
 		},
 		{
 			name:       "Update entry",
-			item:       &signature3_updated,
+			item:       &signature3Updated,
 			wantLength: 2,
 			wantKey:    signature3.Key,
-			wantValue:  &signature3_updated,
+			wantValue:  &signature3Updated,
 		},
 	}
 

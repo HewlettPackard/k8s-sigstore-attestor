@@ -66,8 +66,6 @@ func (c *Cacheimpl) PutSignature(i Item) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	//e := c.getElement(c, i.Key)
-
 	e, present := c.itensMap[i.Key]
 	if present {
 		c.items.Remove(e.element)
