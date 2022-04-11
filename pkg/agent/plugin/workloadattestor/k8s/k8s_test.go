@@ -32,6 +32,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
+	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -811,11 +812,11 @@ func (s *SigstoreMock) FetchImageSignatures(imageName string) ([]oci.Signature, 
 	return s.sigs, s.returnError
 }
 
-func (s *SigstoreMock) ExtractSelectorsFromSignatures(signatures []oci.Signature) []string {
+func (s *SigstoreMock) ExtractSelectorsFromSignatures(signatures []oci.Signature, containerID string) []string {
 	return s.selectors
 }
 
-func (s *SigstoreMock) SelectorValuesFromSignature(signatures oci.Signature) []string {
+func (s *SigstoreMock) SelectorValuesFromSignature(signatures oci.Signature, containerID string) []string {
 	return s.selectors
 }
 
@@ -836,7 +837,7 @@ func (s *SigstoreMock) ClearAllowedSubjects() {
 
 func (s *SigstoreMock) EnableAllowSubjectList(flag bool) {
 }
-func (s *SigstoreMock) AttestContainerSignatures(imageID string) ([]string, error) {
+func (s *SigstoreMock) AttestContainerSignatures(status *corev1.ContainerStatus) ([]string, error) {
 	if s.skipSigs {
 		return s.skippedSigSelectors, nil
 	}

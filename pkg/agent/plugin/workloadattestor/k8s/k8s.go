@@ -219,7 +219,7 @@ func (p *Plugin) Attest(ctx context.Context, req *workloadattestorv1.AttestReque
 			switch lookup {
 			case containerInPod:
 				selectors := getSelectorValuesFromPodInfo(&item, status)
-				sigstoreSelectors, err := p.sigstore.AttestContainerSignatures(status.ImageID)
+				sigstoreSelectors, err := p.sigstore.AttestContainerSignatures(status)
 				if err != nil {
 					log.Error("Error retrieving signature payload: ", err.Error())
 				} else {
