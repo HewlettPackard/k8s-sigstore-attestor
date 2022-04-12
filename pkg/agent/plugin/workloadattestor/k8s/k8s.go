@@ -26,6 +26,7 @@ import (
 	configv1 "github.com/spiffe/spire-plugin-sdk/proto/spire/service/common/config/v1"
 	"github.com/spiffe/spire/pkg/agent/common/cgroups"
 	"github.com/spiffe/spire/pkg/agent/plugin/workloadattestor/k8s/sigstore"
+	"github.com/spiffe/spire/pkg/agent/plugin/workloadattestor/k8s/sigstorecache"
 	"github.com/spiffe/spire/pkg/common/catalog"
 	"github.com/spiffe/spire/pkg/common/pemutil"
 	"github.com/spiffe/spire/pkg/common/telemetry"
@@ -50,6 +51,7 @@ type containerLookup int
 const (
 	containerInPod = iota
 	containerNotInPod
+	maximumAmountCache = 10
 )
 
 func BuiltIn() catalog.BuiltIn {
@@ -170,11 +172,12 @@ type Plugin struct {
 }
 
 func New() *Plugin {
+	newcache := sigstorecache.NewCache(maximumAmountCache)
 	return &Plugin{
 		fs:       cgroups.OSFileSystem{},
 		clock:    clock.New(),
 		getenv:   os.Getenv,
-		sigstore: sigstore.New(),
+		sigstore: sigstore.New(newcache),
 	}
 }
 
