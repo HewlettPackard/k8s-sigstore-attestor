@@ -14,9 +14,9 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/sigstore/cosign/pkg/cosign"
 	"github.com/sigstore/cosign/pkg/oci"
-  corev1 "k8s.io/api/core/v1"
 	rekor "github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/spiffe/spire/pkg/agent/plugin/workloadattestor/k8s/sigstorecache"
+	corev1 "k8s.io/api/core/v1"
 )
 
 const (

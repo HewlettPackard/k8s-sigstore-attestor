@@ -22,7 +22,6 @@ import (
 	"github.com/sigstore/sigstore/pkg/signature/payload"
 	"github.com/spiffe/spire/pkg/agent/plugin/workloadattestor/k8s/sigstorecache"
 	corev1 "k8s.io/api/core/v1"
-
 )
 
 const (
