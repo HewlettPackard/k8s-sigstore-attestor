@@ -27,6 +27,9 @@ add_entry_for_workload() {
 add_entry_for_workload spire example-workload-signed spiffe://example.org/ns/default/sa/default/workload-signed
 add_entry_for_workload spire example-workload-unsigned spiffe://example.org/ns/default/sa/default/workload-unsigned
 add_entry_for_workload spire example-workload-signed-wrong-subject spiffe://example.org/ns/default/sa/default/workload-signed-wrong-subject
+echo "ADICIONANDO ENTRY PARA MULTIPLOS CONTAINERS"
+add_entry_for_workload spire example-multiple-containers spiffe://example.org/ns/default/sa/default/workload-multiple-containers
+echo "ENTRY ADICIONADA COM SUCESSO"
 
 add_entry_for_workload_with_extra_selectors() {
     ns=$1
