@@ -9,7 +9,7 @@ check_for_workload_svid(){
     target_spiffeid=$1
     app_name=$2
     DONE=0
-
+        
     for ((i=1; i<=${MAXFETCHCHECKS}; i++)); do
         EXAMPLE_POD=$(${KUBEBIN} -nspire get pod -l app=${app_name} -o jsonpath="{.items[0].metadata.name}")
         log-info "checking for workload SPIFFE ID ($i of $MAXFETCHCHECKS max)..."
@@ -30,6 +30,7 @@ check_for_workload_svid_multiple_containers(){
     app_name=$2
     container_name=$3
     DONE=0
+    FETCHSVID=0
 
     for ((i=1; i<=${MAXFETCHCHECKS}; i++)); do
         EXAMPLE_POD=$(${KUBEBIN} -nspire get pod -l app=${app_name} -o jsonpath="{.items[0].metadata.name}")
@@ -38,8 +39,15 @@ check_for_workload_svid_multiple_containers(){
             /opt/spire/bin/spire-agent api fetch --timeout 10s\
                 | grep ${target_spiffeid} ; then
             DONE=1
+            FETCHSVID=1
+            break
+        elif ! ${KUBEBIN} -nspire exec -t "${EXAMPLE_POD}" -- \
+            /opt/spire/bin/spire-agent api fetch --timeout 10s\
+                | grep ${target_spiffeid} ; then
+            FETCHSVID=0
             break
         fi
         sleep "${FETCHCHECKINTERVAL}" 
     done
 }
+

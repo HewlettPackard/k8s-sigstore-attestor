@@ -20,7 +20,7 @@ spec:
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       containers:
-        - name: example-multiple-containers-1
+        - name: example-multiple-containers-signed-1
           image: docker-registry-local:5000/workload:signed
           imagePullPolicy: IfNotPresent
           command: ["/usr/bin/dumb-init", "/opt/spire/bin/spire-agent", "api", "watch"]
@@ -29,8 +29,26 @@ spec:
             - name: spire-agent-socket
               mountPath: /tmp/spire-agent/public
               readOnly: true
-        - name: example-multiple-containers-2
+        - name: example-multiple-containers-signed-2
           image: docker-registry-local:5000/workload:signed
+          imagePullPolicy: IfNotPresent
+          command: ["/usr/bin/dumb-init", "/opt/spire/bin/spire-agent", "api", "watch"]
+          args: ["-socketPath", "/tmp/spire-agent/public/api.sock"]
+          volumeMounts:
+            - name: spire-agent-socket
+              mountPath: /tmp/spire-agent/public
+              readOnly: true
+        - name: example-multiple-containers-unsigned-1
+          image: docker-registry-local:5000/workload:unsigned
+          imagePullPolicy: IfNotPresent
+          command: ["/usr/bin/dumb-init", "/opt/spire/bin/spire-agent", "api", "watch"]
+          args: ["-socketPath", "/tmp/spire-agent/public/api.sock"]
+          volumeMounts:
+            - name: spire-agent-socket
+              mountPath: /tmp/spire-agent/public
+              readOnly: true
+        - name: example-multiple-containers-unsigned-2
+          image: docker-registry-local:5000/workload:unsigned
           imagePullPolicy: IfNotPresent
           command: ["/usr/bin/dumb-init", "/opt/spire/bin/spire-agent", "api", "watch"]
           args: ["-socketPath", "/tmp/spire-agent/public/api.sock"]
