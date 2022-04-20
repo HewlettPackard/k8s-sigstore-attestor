@@ -27,9 +27,7 @@ add_entry_for_workload() {
 add_entry_for_workload spire example-workload-signed spiffe://example.org/ns/default/sa/default/workload-signed
 add_entry_for_workload spire example-workload-unsigned spiffe://example.org/ns/default/sa/default/workload-unsigned
 add_entry_for_workload spire example-workload-signed-wrong-subject spiffe://example.org/ns/default/sa/default/workload-signed-wrong-subject
-echo "ADICIONANDO ENTRY PARA MULTIPLOS CONTAINERS"
 add_entry_for_workload spire example-multiple-containers spiffe://example.org/ns/default/sa/default/workload-multiple-containers
-echo "ENTRY ADICIONADA COM SUCESSO"
 
 add_entry_for_workload_with_extra_selectors() {
     ns=$1
@@ -67,7 +65,6 @@ add_entry_for_workload_with_multi_container_pods() {
     WORKLOAD_POD=$(${KUBEBIN} -n${ns} get pod -l app=${app_name} -o jsonpath="{.items[0].metadata.name}")
     CONTAINER_ID=$(${KUBEBIN} -n${ns} get pod -l app=${app_name} -o jsonpath='{range .items[*]}{range .status.containerStatuses[*]}{"\tname: "}{.containerID}{" image: "}{.image}{" pod: "}{..name}{"\n"}{end}' | awk '{split($2,a,/\\n/); print a[1] }')
     for value in $CONTAINER_ID;do
-        log-info "Esse é meu containeridwill ($value)..."
         if ${KUBEBIN} -n${ns} exec ${SERVER_POD} -- /opt/spire/bin/spire-server entry create \
         -spiffeID ${workload_spiffe_id} \
         -parentID ${CLUSTERNODESPIFFEID} \
@@ -80,3 +77,5 @@ add_entry_for_workload_with_multi_container_pods() {
         fi
     done
 }
+
+add_entry_for_workload_with_multi_container_pods spire example-multiple-containers spiffe://example.org/ns/default/sa/default/workload-multiple-containers

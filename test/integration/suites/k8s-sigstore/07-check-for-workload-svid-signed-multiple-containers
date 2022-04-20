@@ -11,8 +11,7 @@ CONTAINERS_ARRAY="
 for i in $CONTAINERS_ARRAY; do
     check_for_workload_svid_multiple_containers "spiffe://example.org/ns/default/sa/default/workload-multiple-containers" example-multiple-containers $i
     if [ "${DONE}" -eq 1 ]; then
-        log-info "SPIFFE ID recusado do container 1."
-        log-info "SPIFFE ID recusado do container 2."
+        log-info "SPIFFE ID FOUND"
     elif [ "${DONE}" -eq 0 ]; then
         fail-now "timed out waiting for workload to obtain credentials."
     else
