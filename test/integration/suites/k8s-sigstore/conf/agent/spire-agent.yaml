@@ -73,6 +73,10 @@ data:
           # Minikube does not have a cert in the cluster CA bundle that
           # can authenticate the kubelet cert, so skip validation.
           skip_kubelet_verification = true
+          #TODO: ADD IMAGE DIGEST HASH TO SKIP LIST
+          skip_signature_verification_image_list = ["docker-registry-local:5000/workload:unsigned-skiplist2", "docker-registry-local:5000/workload:unsigned-skiplist1"]
+          enable_allowed_subjects_list = true
+          allowed_subjects_list = ["hpespirex@gmail.com"]
         }
       }
     }
