@@ -9,7 +9,7 @@ CONTAINERS_ARRAY="
 "
 for container_name in $CONTAINERS_ARRAY; do
     check_for_workload_svid_multiple_containers "spiffe://example.org/ns/default/sa/default/workload-multiple-containers" example-multiple-containers $container_name 
-    if [$container_name -eq "example-multiple-containers-signed-1"]; then
+    if [ "$container_name" == "example-multiple-containers-signed-1" ]; then
         if [ "${DONE}" -eq 1 ]; then
             log-info "SPIFFE ID found."
         elif [ "${DONE}" -eq 0 ]; then
