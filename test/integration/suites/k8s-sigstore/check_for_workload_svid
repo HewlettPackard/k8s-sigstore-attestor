@@ -23,6 +23,11 @@ check_for_workload_svid(){
     done
 }
 
+
+
+#1 - target spiffe id
+#2 - app name
+#3 - container name
 check_for_workload_svid_multiple_containers(){
     MAXFETCHCHECKS=5
     FETCHCHECKINTERVAL=5
@@ -40,11 +45,6 @@ check_for_workload_svid_multiple_containers(){
                 | grep ${target_spiffeid} ; then
             DONE=1
             FETCHSVID=1
-            break
-        elif ! ${KUBEBIN} -nspire exec -t "${EXAMPLE_POD}" -- \
-            /opt/spire/bin/spire-agent api fetch --timeout 10s\
-                | grep ${target_spiffeid} ; then
-            FETCHSVID=0
             break
         fi
         sleep "${FETCHCHECKINTERVAL}" 
