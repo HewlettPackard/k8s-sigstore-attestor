@@ -7,8 +7,8 @@ CONTAINERS_ARRAY="
     example-multiple-containers-unsigned-1
     example-multiple-containers-unsigned-2    
 "
-for i in $CONTAINERS_ARRAY; do
-    check_for_workload_svid_multiple_containers "spiffe://example.org/ns/default/sa/default/workload-multiple-containers" example-multiple-containers $i
+for container_name in $CONTAINERS_ARRAY; do
+    check_for_workload_svid_multiple_containers "spiffe://example.org/ns/default/sa/default/workload-multiple-containers" example-multiple-containers $container_name
     if [ "${FETCHSVID}" -eq 0 ]; then
         log-info "SVID NOT ASSIGNED"
     elif [ "${FETCHSVID}" -eq 1 ]; then

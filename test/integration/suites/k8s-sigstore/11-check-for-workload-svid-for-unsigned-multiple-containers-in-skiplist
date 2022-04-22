@@ -17,4 +17,3 @@ for container_name in $CONTAINERS_ARRAY; do
         fail-now "failed to check for svid"
     fi
 done
-
