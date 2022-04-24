@@ -79,7 +79,6 @@ func (sigstore *Sigstoreimpl) SetLogger(logger hclog.Logger) {
 // FetchImageSignatures retrieves signatures for specified image via cosign, using the specified rekor server.
 // Returns a list of verified signatures, and an error if any.
 func (sigstore *Sigstoreimpl) FetchImageSignatures(imageName string) ([]oci.Signature, error) {
-
 	ref, err := name.ParseReference(imageName)
 	if err != nil {
 		message := fmt.Sprint("Error parsing image reference: ", err.Error())
@@ -146,7 +145,6 @@ func getSignatureSubject(signature oci.Signature) (string, error) {
 	}
 	cert, err := signature.Cert()
 	if err != nil {
-
 		err = errors.New(fmt.Sprint("Error acessing the certificate", err.Error()))
 		return "", err
 	}
