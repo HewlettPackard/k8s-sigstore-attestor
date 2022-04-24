@@ -3,15 +3,15 @@ package sigstorecache
 import (
 	"container/list"
 	"sync"
-
-	"github.com/sigstore/cosign/pkg/oci"
 )
 
 // Item represents a key-value pair
 type Item struct {
 	Key   string
-	Value []oci.Signature
+	Value selectors
 }
+
+type selectors []string
 
 // Cache defines the behaviors of our cache
 type Cache interface {

@@ -8,13 +8,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/url"
 	"regexp"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/hashicorp/go-hclog"
 	"github.com/sigstore/cosign/cmd/cosign/cli/fulcio"
 	"github.com/sigstore/cosign/pkg/cosign"
 	"github.com/sigstore/cosign/pkg/oci"
@@ -41,6 +41,7 @@ type Sigstore interface {
 	EnableAllowSubjectList(bool)
 	ClearAllowedSubjects()
 	SetRekorURL(rekorURL string) error
+	SetLogger(logger hclog.Logger)
 }
 
 type Sigstoreimpl struct {
@@ -50,11 +51,11 @@ type Sigstoreimpl struct {
 	allowListEnabled           bool
 	subjectAllowList           map[string]bool
 	rekorURL                   url.URL
-
-	sigstorecache sigstorecache.Cache
+	logger                     hclog.Logger
+	sigstorecache              sigstorecache.Cache
 }
 
-func New(cache sigstorecache.Cache) Sigstore {
+func New(cache sigstorecache.Cache, logger hclog.Logger) Sigstore {
 	return &Sigstoreimpl{
 		verifyFunction:             cosign.VerifyImageSignatures,
 		fetchImageManifestFunction: remote.Get,
@@ -66,22 +67,23 @@ func New(cache sigstorecache.Cache) Sigstore {
 			Host:   rekor.DefaultHost,
 			Path:   rekor.DefaultBasePath,
 		},
+		logger:        logger,
 		sigstorecache: cache,
 	}
+}
+
+func (sigstore *Sigstoreimpl) SetLogger(logger hclog.Logger) {
+	sigstore.logger = logger
 }
 
 // FetchImageSignatures retrieves signatures for specified image via cosign, using the specified rekor server.
 // Returns a list of verified signatures, and an error if any.
 func (sigstore *Sigstoreimpl) FetchImageSignatures(imageName string) ([]oci.Signature, error) {
+
 	ref, err := name.ParseReference(imageName)
 	if err != nil {
 		message := fmt.Sprint("Error parsing image reference: ", err.Error())
 		return nil, errors.New(message)
-	}
-
-	cachedValue := sigstore.sigstorecache.GetSignature(imageName)
-	if cachedValue != nil {
-		return cachedValue.Value, nil
 	}
 
 	_, err = sigstore.ValidateImage(ref)
@@ -108,12 +110,6 @@ func (sigstore *Sigstoreimpl) FetchImageSignatures(imageName string) ([]oci.Sign
 		return nil, errors.New(message)
 	}
 
-	cachedSignature := sigstorecache.Item{
-		Key:   imageName,
-		Value: sigs,
-	}
-
-	sigstore.sigstorecache.PutSignature(cachedSignature)
 	return sigs, nil
 }
 
@@ -135,25 +131,24 @@ func (sigstore *Sigstoreimpl) ExtractSelectorsFromSignatures(signatures []oci.Si
 	return selectors
 }
 
-func getSignatureSubject(signature oci.Signature) string {
+func getSignatureSubject(signature oci.Signature) (string, error) {
 	if signature == nil {
-		return ""
+		return "", errors.New("Signature is nil")
 	}
 	ss := payload.SimpleContainerImage{}
 	pl, err := signature.Payload()
 	if err != nil {
-		log.Println("Error accessing the payload:", err.Error())
-		return ""
+		return "", err
 	}
 	err = json.Unmarshal(pl, &ss)
 	if err != nil {
-		log.Println("Error decoding the payload:", err.Error())
-		return ""
+		return "", err
 	}
 	cert, err := signature.Cert()
 	if err != nil {
-		log.Println("Error accessing the certificate:", err.Error())
-		return ""
+
+		err = errors.New(fmt.Sprint("Error acessing the certificate", err.Error()))
+		return "", err
 	}
 
 	subject := ""
@@ -167,7 +162,7 @@ func getSignatureSubject(signature oci.Signature) string {
 		subject = certSubject(cert)
 	}
 
-	return subject
+	return subject, nil
 }
 
 // The following structs are used to go through the payload json objects
@@ -217,9 +212,15 @@ func getBundleSignatureContent(bundle *oci.Bundle) (string, error) {
 // SelectorValuesFromSignature extracts selectors from a signature.
 // returns a list of selectors.
 func (sigstore *Sigstoreimpl) SelectorValuesFromSignature(signature oci.Signature, containerID string) []string {
-	subject := getSignatureSubject(signature)
+	subject, err := getSignatureSubject(signature)
+
+	if err != nil {
+		sigstore.logger.Error("Error getting signature subject: ", err.Error())
+		return nil
+	}
 
 	if subject == "" {
+		sigstore.logger.Error("Error getting signature subject: empty subject")
 		return nil
 	}
 
@@ -237,11 +238,11 @@ func (sigstore *Sigstoreimpl) SelectorValuesFromSignature(signature oci.Signatur
 		}
 		bundle, err := signature.Bundle()
 		if err != nil {
-			log.Println("Error getting signature bundle: ", err.Error())
+			sigstore.logger.Error("Error getting signature bundle: ", err.Error())
 		} else {
 			sigContent, err := getBundleSignatureContent(bundle)
 			if err != nil {
-				log.Println("Error getting signature content: ", err.Error())
+				sigstore.logger.Error("Error getting signature content: ", err.Error())
 			} else {
 				selectors = append(selectors, fmt.Sprintf("%s:image-signature-content:%s", containerID, sigContent))
 			}
@@ -353,6 +354,14 @@ func (sigstore *Sigstoreimpl) AttestContainerSignatures(status *corev1.Container
 		return []string{signatureVerifiedSelector}, nil
 	}
 
+	imageID := status.ImageID
+
+	cachedValue := sigstore.sigstorecache.GetSignature(imageID)
+	if cachedValue != nil {
+		sigstore.logger.Debug("Found cached signature", "imageId", imageID)
+		return cachedValue.Value, nil
+	}
+
 	signatures, err := sigstore.FetchImageSignatures(status.ImageID)
 	if err != nil {
 		return nil, err
@@ -363,6 +372,13 @@ func (sigstore *Sigstoreimpl) AttestContainerSignatures(status *corev1.Container
 		selectors = append(selectors, signatureVerifiedSelector)
 	}
 
+	cachedSignature := sigstorecache.Item{
+		Key:   imageID,
+		Value: selectors,
+	}
+
+	sigstore.logger.Debug("Caching signature", "imageID", imageID)
+	sigstore.sigstorecache.PutSignature(cachedSignature)
 	return selectors, nil
 }
 

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/hashicorp/go-hclog"
 	"github.com/sigstore/cosign/pkg/oci"
 	"github.com/spiffe/spire/pkg/agent/common/cgroups"
 	"github.com/spiffe/spire/pkg/agent/plugin/workloadattestor"
@@ -806,6 +807,10 @@ type SigstoreMock struct {
 	returnError         error
 
 	rekorURL string
+}
+
+// SetLogger implements sigstore.Sigstore
+func (*SigstoreMock) SetLogger(logger hclog.Logger) {
 }
 
 func (s *SigstoreMock) FetchImageSignatures(imageName string) ([]oci.Signature, error) {
