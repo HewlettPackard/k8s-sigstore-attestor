@@ -177,12 +177,13 @@ func New() *Plugin {
 		fs:       cgroups.OSFileSystem{},
 		clock:    clock.New(),
 		getenv:   os.Getenv,
-		sigstore: sigstore.New(newcache),
+		sigstore: sigstore.New(newcache, nil),
 	}
 }
 
 func (p *Plugin) SetLogger(log hclog.Logger) {
 	p.log = log
+	p.sigstore.SetLogger(log)
 }
 
 func (p *Plugin) Attest(ctx context.Context, req *workloadattestorv1.AttestRequest) (*workloadattestorv1.AttestResponse, error) {
@@ -219,6 +220,7 @@ func (p *Plugin) Attest(ctx context.Context, req *workloadattestorv1.AttestReque
 			switch lookup {
 			case containerInPod:
 				selectors := getSelectorValuesFromPodInfo(&item, status)
+				log.Debug("Attemping to get signature info from image", status)
 				sigstoreSelectors, err := p.sigstore.AttestContainerSignatures(status)
 				if err != nil {
 					log.Error("Error retrieving signature payload: ", err.Error())

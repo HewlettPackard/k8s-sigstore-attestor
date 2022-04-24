@@ -2,132 +2,52 @@ package sigstorecache
 
 import (
 	"container/list"
-	"crypto/x509"
 	"reflect"
 	"sync"
 	"testing"
-
-	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/sigstore/cosign/pkg/oci"
 )
 
 var (
-	signature1 = Item{
+	selectors1 = Item{
 		Key: "signature1",
-		Value: []oci.Signature{
-			signature{
-				payload: []byte(`{
-				"critical": {
-					"identity": {
-						"docker-reference": "docker-registry.com/some/image"},
-						"image": {"docker-manifest-digest": "11111111111111"},
-						"type": "some type"
-					},
-					"optional": {
-						"subject": "spirex1@example.com"
-						}
-					},
-				}`),
-			},
+		Value: []string{
+			"containerid:image-signature-subject:spirex1@example.com",
+			"containerid:image-signature-content:content1",
+			"containerid:image-signature-logid:1111111111111111",
+			"containerid:image-signature-integrated-time:1111111111111111",
 		},
 	}
 
-	signature2 = Item{
+	selectors2 = Item{
 		Key: "signature2",
-		Value: []oci.Signature{
-			signature{
-				payload: []byte(`{
-				"critical": {
-					"identity": {
-						"docker-reference": "docker-registry.com/some/image"},
-						"image": {"docker-manifest-digest2": "2222222222222"},
-						"type": "some type"
-					},
-					"optional": {
-						"subject": "spirex2@example.com"
-						},
-					},
-				},`),
-			},
+		Value: []string{
+			"containerid:image-signature-subject:spirex2@example.com",
+			"containerid:image-signature-content:content2",
+			"containerid:image-signature-logid:2222222222222222",
+			"containerid:image-signature-integrated-time:2222222222222222",
 		},
 	}
 
-	signature3 = Item{
+	selectors3 = Item{
 		Key: "signature3",
-		Value: []oci.Signature{
-			signature{
-				payload: []byte(`{
-							"critical": {
-								"identity": {
-									"docker-reference": "docker-registry.com/some/image"
-								},
-								"image": {
-									"docker-manifest-digest3": "3333333333333"
-								},
-								"type": "some type"
-							}
-							"optional": {
-								"subject": "spirex3@example.com"
-							}
-						}`),
-			},
+		Value: []string{
+			"containerid:image-signature-subject:spirex3@example.com",
+			"containerid:image-signature-content:content3",
+			"containerid:image-signature-logid:3333333333333333",
+			"containerid:image-signature-integrated-time:3333333333333333",
 		},
 	}
 
-	signature3Updated = Item{
+	selectors3Updated = Item{
 		Key: "signature3",
-		Value: []oci.Signature{
-			signature{
-				payload: []byte(`{
-								"critical": {
-									"identity": {
-										"docker-reference": "docker-registry.com/some/image"
-									},
-									"image": {
-										"docker-manifest-digest4": "4444444444444"
-									},
-									"type": "some type"
-								}
-								"optional": {
-									"subject": "spirex4@example.com"
-								}
-							}`),
-			},
+		Value: []string{
+			"containerid:image-signature-subject:spirex3@example.com",
+			"containerid:image-signature-content:content4",
+			"containerid:image-signature-logid:4444444444444444",
+			"containerid:image-signature-integrated-time:4444444444444444",
 		},
 	}
 )
-
-type signature struct {
-	v1.Layer
-
-	payload []byte
-	cert    *x509.Certificate
-	bundle  *oci.Bundle
-}
-
-func (signature) Annotations() (map[string]string, error) {
-	return nil, nil
-}
-
-func (s signature) Payload() ([]byte, error) {
-	return s.payload, nil
-}
-
-func (signature) Base64Signature() (string, error) {
-	return "", nil
-}
-
-func (s signature) Cert() (*x509.Certificate, error) {
-	return s.cert, nil
-}
-
-func (signature) Chain() ([]*x509.Certificate, error) {
-	return nil, nil
-}
-
-func (s signature) Bundle() (*oci.Bundle, error) {
-	return s.bundle, nil
-}
 
 func TestNewCache(t *testing.T) {
 	tests := []struct {
@@ -157,13 +77,13 @@ func TestCacheimpl_GetSignature(t *testing.T) {
 	m := make(map[string]MapItem)
 	items := list.New()
 
-	m[signature1.Key] = MapItem{
-		item:    &signature1,
-		element: items.PushFront(signature1.Key),
+	m[selectors1.Key] = MapItem{
+		item:    &selectors1,
+		element: items.PushFront(selectors1.Key),
 	}
-	m[signature2.Key] = MapItem{
-		item:    &signature2,
-		element: items.PushFront(signature2.Key),
+	m[selectors2.Key] = MapItem{
+		item:    &selectors2,
+		element: items.PushFront(selectors2.Key),
 	}
 
 	cacheInstance := &Cacheimpl{
@@ -182,13 +102,13 @@ func TestCacheimpl_GetSignature(t *testing.T) {
 		{
 			name:         "Non existing entry",
 			want:         nil,
-			key:          signature3.Key,
+			key:          selectors3.Key,
 			errorMessage: "A non-existing item's key should return a nil item.",
 		},
 		{
 			name:         "Existing entry",
-			want:         &signature1,
-			key:          signature1.Key,
+			want:         &selectors1,
+			key:          selectors1.Key,
 			errorMessage: "An existing items key's should return the existing item",
 		},
 	}
@@ -222,38 +142,38 @@ func TestCacheimpl_PutSignature(t *testing.T) {
 	}{
 		{
 			name:       "Put first element",
-			item:       &signature1,
+			item:       &selectors1,
 			wantLength: 1,
-			wantKey:    signature1.Key,
-			wantValue:  &signature1,
+			wantKey:    selectors1.Key,
+			wantValue:  &selectors1,
 		},
 		{
 			name:       "Put first element again",
-			item:       &signature1,
+			item:       &selectors1,
 			wantLength: 1,
-			wantKey:    signature1.Key,
-			wantValue:  &signature1,
+			wantKey:    selectors1.Key,
+			wantValue:  &selectors1,
 		},
 		{
 			name:       "Put second element",
-			item:       &signature2,
+			item:       &selectors2,
 			wantLength: 2,
-			wantKey:    signature2.Key,
-			wantValue:  &signature2,
+			wantKey:    selectors2.Key,
+			wantValue:  &selectors2,
 		},
 		{
 			name:       "Overflow cache",
-			item:       &signature3,
+			item:       &selectors3,
 			wantLength: 2,
-			wantKey:    signature3.Key,
-			wantValue:  &signature3,
+			wantKey:    selectors3.Key,
+			wantValue:  &selectors3,
 		},
 		{
 			name:       "Update entry",
-			item:       &signature3Updated,
+			item:       &selectors3Updated,
 			wantLength: 2,
-			wantKey:    signature3.Key,
-			wantValue:  &signature3Updated,
+			wantKey:    selectors3.Key,
+			wantValue:  &selectors3Updated,
 		},
 	}
 

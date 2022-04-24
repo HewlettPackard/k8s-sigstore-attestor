@@ -12,6 +12,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/hashicorp/go-hclog"
 	"github.com/sigstore/cosign/pkg/cosign"
 	"github.com/sigstore/cosign/pkg/oci"
 	rekor "github.com/sigstore/rekor/pkg/generated/client"
@@ -72,12 +73,13 @@ func TestNew(t *testing.T) {
 				subjectAllowList:           map[string]bool{},
 				rekorURL:                   url.URL{Scheme: rekor.DefaultSchemes[0], Host: rekor.DefaultHost, Path: rekor.DefaultBasePath},
 				sigstorecache:              newcache,
+				logger:                     nil,
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := New(newcache); fmt.Sprintf("%v", got) != fmt.Sprintf("%v", tt.want) {
+			if got := New(newcache, nil); fmt.Sprintf("%v", got) != fmt.Sprintf("%v", tt.want) {
 				t.Errorf("New() = %v, want %v", got, tt.want)
 			}
 		})
@@ -323,6 +325,7 @@ func TestSigstoreimpl_ExtractSelectorsFromSignatures(t *testing.T) {
 		args        args
 		containerID string
 		want        []string
+		wantError   bool
 	}{
 		{
 			name: "extract selector from single image signature array",
@@ -484,6 +487,7 @@ func TestSigstoreimpl_ExtractSelectorsFromSignatures(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := Sigstoreimpl{
 				verifyFunction: tt.fields.verifyFunction,
+				logger:         hclog.Default(),
 			}
 			if got := s.ExtractSelectorsFromSignatures(tt.args.signatures, tt.containerID); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Sigstoreimpl.ExtractSelectorsFromSignatures() = %v, want %v", got, tt.want)
@@ -849,7 +853,7 @@ func Test_getSignatureSubject(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getSignatureSubject(tt.args.signature); got != tt.want {
+			if got, _ := getSignatureSubject(tt.args.signature); got != tt.want {
 				t.Errorf("getSignatureSubject() = %v, want %v", got, tt.want)
 			}
 		})
@@ -1389,6 +1393,7 @@ func TestSigstoreimpl_SelectorValuesFromSignature(t *testing.T) {
 			sigstore := &Sigstoreimpl{
 				allowListEnabled: tt.fields.allowListEnabled,
 				subjectAllowList: tt.fields.subjectAllowList,
+				logger:           hclog.Default(),
 			}
 			if got := sigstore.SelectorValuesFromSignature(tt.args.signature, tt.containerID); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Sigstoreimpl.SelectorValuesFromSignature() = %v, want %v", got, tt.want)
@@ -1607,6 +1612,7 @@ func TestSigstoreimpl_AttestContainerSignatures(t *testing.T) {
 				skippedImages:              tt.fields.skippedImages,
 				rekorURL:                   tt.fields.rekorURL,
 				sigstorecache:              sigstorecache.NewCache(maximumAmountCache),
+				logger:                     hclog.Default(),
 			}
 			got, err := sigstore.AttestContainerSignatures(&tt.status)
 			if (err != nil) != tt.wantErr {
