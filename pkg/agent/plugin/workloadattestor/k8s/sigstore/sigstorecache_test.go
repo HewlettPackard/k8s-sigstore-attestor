@@ -1,4 +1,4 @@
-package sigstorecache
+package sigstore
 
 import (
 	"container/list"
@@ -10,41 +10,51 @@ import (
 var (
 	selectors1 = Item{
 		Key: "signature1",
-		Value: []string{
-			"containerid:image-signature-subject:spirex1@example.com",
-			"containerid:image-signature-content:content1",
-			"containerid:image-signature-logid:1111111111111111",
-			"containerid:image-signature-integrated-time:1111111111111111",
+		Value: []SelectorsFromSignatures{
+			{
+
+				Subject:        "spirex1@example.com",
+				Content:        "content1",
+				LogID:          "1111111111111111",
+				IntegratedTime: "1111111111111111",
+			},
 		},
 	}
 
 	selectors2 = Item{
 		Key: "signature2",
-		Value: []string{
-			"containerid:image-signature-subject:spirex2@example.com",
-			"containerid:image-signature-content:content2",
-			"containerid:image-signature-logid:2222222222222222",
-			"containerid:image-signature-integrated-time:2222222222222222",
+		Value: []SelectorsFromSignatures{
+			{
+
+				Subject:        "spirex2@example.com",
+				Content:        "content2",
+				LogID:          "2222222222222222",
+				IntegratedTime: "2222222222222222",
+			},
 		},
 	}
 
 	selectors3 = Item{
 		Key: "signature3",
-		Value: []string{
-			"containerid:image-signature-subject:spirex3@example.com",
-			"containerid:image-signature-content:content3",
-			"containerid:image-signature-logid:3333333333333333",
-			"containerid:image-signature-integrated-time:3333333333333333",
+		Value: []SelectorsFromSignatures{
+			{
+				Subject:        "spirex3@example.com",
+				Content:        "content3",
+				LogID:          "3333333333333333",
+				IntegratedTime: "3333333333333333",
+			},
 		},
 	}
 
 	selectors3Updated = Item{
 		Key: "signature3",
-		Value: []string{
-			"containerid:image-signature-subject:spirex3@example.com",
-			"containerid:image-signature-content:content4",
-			"containerid:image-signature-logid:4444444444444444",
-			"containerid:image-signature-integrated-time:4444444444444444",
+		Value: []SelectorsFromSignatures{
+			{
+				Subject:        "spirex3@example.com",
+				Content:        "content4",
+				LogID:          "4444444444444444",
+				IntegratedTime: "4444444444444444",
+			},
 		},
 	}
 )
