@@ -1,4 +1,4 @@
-package sigstorecache
+package sigstore
 
 import (
 	"container/list"
@@ -8,10 +8,8 @@ import (
 // Item represents a key-value pair
 type Item struct {
 	Key   string
-	Value selectors
+	Value []SelectorsFromSignatures
 }
-
-type selectors []string
 
 // Cache defines the behaviors of our cache
 type Cache interface {

@@ -20,7 +20,6 @@ import (
 	"github.com/sigstore/cosign/pkg/oci"
 	rekor "github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/sigstore/sigstore/pkg/signature/payload"
-	"github.com/spiffe/spire/pkg/agent/plugin/workloadattestor/k8s/sigstorecache"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -32,8 +31,8 @@ const (
 type Sigstore interface {
 	AttestContainerSignatures(status *corev1.ContainerStatus) ([]string, error)
 	FetchImageSignatures(imageName string) ([]oci.Signature, error)
-	SelectorValuesFromSignature(oci.Signature, string) []string
-	ExtractSelectorsFromSignatures(signatures []oci.Signature, containerID string) []string
+	SelectorValuesFromSignature(oci.Signature, string) SelectorsFromSignatures
+	ExtractSelectorsFromSignatures(signatures []oci.Signature, containerID string) []SelectorsFromSignatures
 	ShouldSkipImage(imageID string) (bool, error)
 	AddSkippedImage(imageID string)
 	ClearSkipList()
@@ -52,10 +51,10 @@ type Sigstoreimpl struct {
 	subjectAllowList           map[string]bool
 	rekorURL                   url.URL
 	logger                     hclog.Logger
-	sigstorecache              sigstorecache.Cache
+	sigstorecache              Cache
 }
 
-func New(cache sigstorecache.Cache, logger hclog.Logger) Sigstore {
+func New(cache Cache, logger hclog.Logger) Sigstore {
 	return &Sigstoreimpl{
 		verifyFunction:             cosign.VerifyImageSignatures,
 		fetchImageManifestFunction: remote.Get,
@@ -114,17 +113,18 @@ func (sigstore *Sigstoreimpl) FetchImageSignatures(imageName string) ([]oci.Sign
 
 // ExtractSelectorsFromSignatures extracts selectors from a list of image signatures.
 // returns a list of selector strings.
-func (sigstore *Sigstoreimpl) ExtractSelectorsFromSignatures(signatures []oci.Signature, containerID string) []string {
+
+func (sigstore *Sigstoreimpl) ExtractSelectorsFromSignatures(signatures []oci.Signature, containerID string) []SelectorsFromSignatures {
 	// Payload can be empty if the attestor fails to retrieve it
 	if signatures == nil {
 		return nil
 	}
-	var selectors []string
+	var selectors []SelectorsFromSignatures
 	for _, sig := range signatures {
 		// verify which subject
 		sigSelectors := sigstore.SelectorValuesFromSignature(sig, containerID)
-		if sigSelectors != nil {
-			selectors = append(selectors, sigSelectors...)
+		if sigSelectors.Verified {
+			selectors = append(selectors, sigSelectors)
 		}
 	}
 	return selectors
@@ -207,19 +207,28 @@ func getBundleSignatureContent(bundle *oci.Bundle) (string, error) {
 	return bundlebody.Spec.Signature.Content, nil
 }
 
+type SelectorsFromSignatures struct {
+	Subject        string
+	Content        string
+	LogID          string
+	IntegratedTime string
+	Verified       bool
+}
+
 // SelectorValuesFromSignature extracts selectors from a signature.
 // returns a list of selectors.
-func (sigstore *Sigstoreimpl) SelectorValuesFromSignature(signature oci.Signature, containerID string) []string {
+func (sigstore *Sigstoreimpl) SelectorValuesFromSignature(signature oci.Signature, containerID string) SelectorsFromSignatures {
 	subject, err := getSignatureSubject(signature)
+	var selectorsFromSignatures SelectorsFromSignatures
 
 	if err != nil {
 		sigstore.logger.Error("Error getting signature subject: ", err.Error())
-		return nil
+		return selectorsFromSignatures
 	}
 
 	if subject == "" {
 		sigstore.logger.Error("Error getting signature subject: empty subject")
-		return nil
+		return selectorsFromSignatures
 	}
 
 	suppress := false
@@ -229,11 +238,10 @@ func (sigstore *Sigstoreimpl) SelectorValuesFromSignature(signature oci.Signatur
 		}
 	}
 
-	var selectors []string
 	if !suppress {
-		selectors = []string{
-			fmt.Sprintf("%s:image-signature-subject:%s", containerID, subject),
-		}
+		selectorsFromSignatures.Subject = subject
+		selectorsFromSignatures.Verified = true
+
 		bundle, err := signature.Bundle()
 		if err != nil {
 			sigstore.logger.Error("Error getting signature bundle: ", err.Error())
@@ -242,17 +250,34 @@ func (sigstore *Sigstoreimpl) SelectorValuesFromSignature(signature oci.Signatur
 			if err != nil {
 				sigstore.logger.Error("Error getting signature content: ", err.Error())
 			} else {
-				selectors = append(selectors, fmt.Sprintf("%s:image-signature-content:%s", containerID, sigContent))
+				selectorsFromSignatures.Content = sigContent
 			}
 			if bundle.Payload.LogID != "" {
-				selectors = append(selectors, fmt.Sprintf("%s:image-signature-logid:%s", containerID, bundle.Payload.LogID))
+				selectorsFromSignatures.LogID = bundle.Payload.LogID
 			}
 			if bundle.Payload.IntegratedTime != 0 {
-				selectors = append(selectors, fmt.Sprintf("%s:image-signature-integrated-time:%d", containerID, bundle.Payload.IntegratedTime))
+				selectorsFromSignatures.IntegratedTime = fmt.Sprintf("%d", bundle.Payload.IntegratedTime)
 			}
 		}
 	}
-	return selectors
+	return selectorsFromSignatures
+}
+
+func selectorsToString(selectors SelectorsFromSignatures, containerID string) []string {
+	var selectorsString []string
+	if selectors.Subject != "" {
+		selectorsString = append(selectorsString, fmt.Sprintf("%s:image-signature-subject:%s", containerID, selectors.Subject))
+	}
+	if selectors.Content != "" {
+		selectorsString = append(selectorsString, fmt.Sprintf("%s:image-signature-content:%s", containerID, selectors.Content))
+	}
+	if selectors.LogID != "" {
+		selectorsString = append(selectorsString, fmt.Sprintf("%s:image-signature-logid:%s", containerID, selectors.LogID))
+	}
+	if selectors.IntegratedTime != "" {
+		selectorsString = append(selectorsString, fmt.Sprintf("%s:image-signature-integrated-time:%s", containerID, selectors.IntegratedTime))
+	}
+	return selectorsString
 }
 
 func certSubject(c *x509.Certificate) string {
@@ -354,30 +379,38 @@ func (sigstore *Sigstoreimpl) AttestContainerSignatures(status *corev1.Container
 
 	imageID := status.ImageID
 
-	cachedValue := sigstore.sigstorecache.GetSignature(imageID)
-	if cachedValue != nil {
+	cacheKey := imageID
+
+	cachedSignature := sigstore.sigstorecache.GetSignature(cacheKey)
+	if cachedSignature != nil {
 		sigstore.logger.Debug("Found cached signature", "imageId", imageID)
-		return cachedValue.Value, nil
+	} else {
+		signatures, err := sigstore.FetchImageSignatures(status.ImageID)
+		if err != nil {
+			return nil, err
+		}
+
+		selectors := sigstore.ExtractSelectorsFromSignatures(signatures, status.ContainerID)
+
+		cachedSignature = &Item{
+			Key:   cacheKey,
+			Value: selectors,
+		}
+
+		sigstore.logger.Debug("Caching signature", "imageID", imageID)
+		sigstore.sigstorecache.PutSignature(*cachedSignature)
 	}
 
-	signatures, err := sigstore.FetchImageSignatures(status.ImageID)
-	if err != nil {
-		return nil, err
+	var selectorsString []string
+	if len(cachedSignature.Value) > 0 {
+		for _, selector := range cachedSignature.Value {
+			toString := selectorsToString(selector, status.ContainerID)
+			selectorsString = append(selectorsString, toString...)
+		}
+		selectorsString = append(selectorsString, signatureVerifiedSelector)
 	}
 
-	selectors := sigstore.ExtractSelectorsFromSignatures(signatures, status.ContainerID)
-	if len(selectors) > 0 {
-		selectors = append(selectors, signatureVerifiedSelector)
-	}
-
-	cachedSignature := sigstorecache.Item{
-		Key:   imageID,
-		Value: selectors,
-	}
-
-	sigstore.logger.Debug("Caching signature", "imageID", imageID)
-	sigstore.sigstorecache.PutSignature(cachedSignature)
-	return selectors, nil
+	return selectorsString, nil
 }
 
 func (sigstore *Sigstoreimpl) SetRekorURL(rekorURL string) error {

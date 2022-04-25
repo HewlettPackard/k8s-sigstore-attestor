@@ -16,7 +16,6 @@ import (
 	"github.com/sigstore/cosign/pkg/cosign"
 	"github.com/sigstore/cosign/pkg/oci"
 	rekor "github.com/sigstore/rekor/pkg/generated/client"
-	"github.com/spiffe/spire/pkg/agent/plugin/workloadattestor/k8s/sigstorecache"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -57,7 +56,7 @@ func (s signature) Bundle() (*oci.Bundle, error) {
 }
 
 func TestNew(t *testing.T) {
-	newcache := sigstorecache.NewCache(maximumAmountCache)
+	newcache := NewCache(maximumAmountCache)
 
 	tests := []struct {
 		name string
@@ -298,7 +297,7 @@ func TestSigstoreimpl_FetchImageSignatures(t *testing.T) {
 			sigstore := Sigstoreimpl{
 				verifyFunction:             tt.fields.verifyFunction,
 				fetchImageManifestFunction: tt.fields.fetchImageManifestFunction,
-				sigstorecache:              sigstorecache.NewCache(maximumAmountCache),
+				sigstorecache:              NewCache(maximumAmountCache),
 			}
 			got, err := sigstore.FetchImageSignatures(tt.args.imageName)
 			if (err != nil) != tt.wantErr {
@@ -324,7 +323,7 @@ func TestSigstoreimpl_ExtractSelectorsFromSignatures(t *testing.T) {
 		fields      fields
 		args        args
 		containerID string
-		want        []string
+		want        []SelectorsFromSignatures
 		wantError   bool
 	}{
 		{
@@ -347,7 +346,15 @@ func TestSigstoreimpl_ExtractSelectorsFromSignatures(t *testing.T) {
 				},
 			},
 			containerID: "000000",
-			want:        []string{"000000:image-signature-subject:spirex@example.com", "000000:image-signature-content:MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smA=", "000000:image-signature-logid:samplelogID", "000000:image-signature-integrated-time:12345"},
+			want: []SelectorsFromSignatures{
+				{
+					Subject:        "spirex@example.com",
+					Content:        "MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smA=",
+					LogID:          "samplelogID",
+					IntegratedTime: "12345",
+					Verified:       true,
+				},
+			},
 		},
 		{
 			name: "extract selector from image signature array with multiple entries",
@@ -379,7 +386,22 @@ func TestSigstoreimpl_ExtractSelectorsFromSignatures(t *testing.T) {
 				},
 			},
 			containerID: "111111",
-			want:        []string{"111111:image-signature-subject:spirex1@example.com", "111111:image-signature-content:MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smA=", "111111:image-signature-logid:samplelogID1", "111111:image-signature-integrated-time:12345", "111111:image-signature-subject:spirex2@example.com", "111111:image-signature-content:MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smB=", "111111:image-signature-logid:samplelogID2", "111111:image-signature-integrated-time:12346"},
+			want: []SelectorsFromSignatures{
+				{
+					Subject:        "spirex1@example.com",
+					Content:        "MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smA=",
+					LogID:          "samplelogID1",
+					IntegratedTime: "12345",
+					Verified:       true,
+				},
+				{
+					Subject:        "spirex2@example.com",
+					Content:        "MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smB=",
+					LogID:          "samplelogID2",
+					IntegratedTime: "12346",
+					Verified:       true,
+				},
+			},
 		},
 		{
 			name: "with invalid payload",
@@ -422,7 +444,15 @@ func TestSigstoreimpl_ExtractSelectorsFromSignatures(t *testing.T) {
 				},
 			},
 			containerID: "333333",
-			want:        []string{"333333:image-signature-subject:spirex@example.com", "333333:image-signature-content:MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smA=", "333333:image-signature-logid:samplelogID", "333333:image-signature-integrated-time:12345"},
+			want: []SelectorsFromSignatures{
+				{
+					Subject:        "spirex@example.com",
+					Content:        "MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smA=",
+					LogID:          "samplelogID",
+					IntegratedTime: "12345",
+					Verified:       true,
+				},
+			},
 		},
 		{
 			name: "extract selector from image signature with URI certificate",
@@ -458,7 +488,15 @@ func TestSigstoreimpl_ExtractSelectorsFromSignatures(t *testing.T) {
 				},
 			},
 			containerID: "444444",
-			want:        []string{"444444:image-signature-subject:https://www.example.com/somepath1", "444444:image-signature-content:MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smA=", "444444:image-signature-logid:samplelogID", "444444:image-signature-integrated-time:12345"},
+			want: []SelectorsFromSignatures{
+				{
+					Subject:        "https://www.example.com/somepath1",
+					Content:        "MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smA=",
+					LogID:          "samplelogID",
+					IntegratedTime: "12345",
+					Verified:       true,
+				},
+			},
 		},
 		{
 			name: "extract selector from empty array",
@@ -1267,7 +1305,7 @@ func TestSigstoreimpl_SelectorValuesFromSignature(t *testing.T) {
 		fields      fields
 		args        args
 		containerID string
-		want        []string
+		want        SelectorsFromSignatures
 	}{
 		{
 			name: "selector from signature",
@@ -1288,7 +1326,13 @@ func TestSigstoreimpl_SelectorValuesFromSignature(t *testing.T) {
 				},
 			},
 			containerID: "000000",
-			want:        []string{"000000:image-signature-subject:spirex@example.com", "000000:image-signature-content:MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smA=", "000000:image-signature-logid:samplelogID", "000000:image-signature-integrated-time:12345"},
+			want: SelectorsFromSignatures{
+				Subject:        "spirex@example.com",
+				Content:        "MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smA=",
+				LogID:          "samplelogID",
+				IntegratedTime: "12345",
+				Verified:       true,
+			},
 		},
 		{
 			name: "selector from signature, empty subject",
@@ -1309,7 +1353,7 @@ func TestSigstoreimpl_SelectorValuesFromSignature(t *testing.T) {
 				},
 			},
 			containerID: "111111",
-			want:        nil,
+			want:        SelectorsFromSignatures{},
 		},
 		{
 			name: "selector from signature, not in allowlist",
@@ -1325,7 +1369,7 @@ func TestSigstoreimpl_SelectorValuesFromSignature(t *testing.T) {
 				},
 			},
 			containerID: "222222",
-			want:        nil,
+			want:        SelectorsFromSignatures{},
 		},
 		{
 			name: "selector from signature, allowedlist enabled, in allowlist",
@@ -1348,7 +1392,14 @@ func TestSigstoreimpl_SelectorValuesFromSignature(t *testing.T) {
 				},
 			},
 			containerID: "333333",
-			want:        []string{"333333:image-signature-subject:spirex@example.com", "333333:image-signature-content:MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smA=", "333333:image-signature-logid:samplelogID", "333333:image-signature-integrated-time:12345"},
+			want: SelectorsFromSignatures{
+
+				Subject:        "spirex@example.com",
+				Content:        "MEUCIQCyem8Gcr0sPFMP7fTXazCN57NcN5+MjxJw9Oo0x2eM+AIgdgBP96BO1Te/NdbjHbUeb0BUye6deRgVtQEv5No5smA=",
+				LogID:          "samplelogID",
+				IntegratedTime: "12345",
+				Verified:       true,
+			},
 		},
 		{
 			name: "selector from signature, allowedlist enabled, in allowlist, empty content",
@@ -1371,8 +1422,13 @@ func TestSigstoreimpl_SelectorValuesFromSignature(t *testing.T) {
 				},
 			},
 			containerID: "444444",
-			want:        []string{"444444:image-signature-subject:spirex@example.com", "444444:image-signature-logid:samplelogID", "444444:image-signature-integrated-time:12345"},
+			want: SelectorsFromSignatures{
+				Subject:        "spirex@example.com",
+				LogID:          "samplelogID",
+				IntegratedTime: "12345",
+				Verified:       true},
 		},
+
 		{
 			name: "selector from signature, no bundle",
 			fields: fields{
@@ -1385,7 +1441,11 @@ func TestSigstoreimpl_SelectorValuesFromSignature(t *testing.T) {
 				},
 			},
 			containerID: "555555",
-			want:        []string{"555555:image-signature-subject:spirex@example.com"},
+			want: SelectorsFromSignatures{
+
+				Subject:  "spirex@example.com",
+				Verified: true,
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -1611,7 +1671,7 @@ func TestSigstoreimpl_AttestContainerSignatures(t *testing.T) {
 				fetchImageManifestFunction: tt.fields.fetchImageManifestFunction,
 				skippedImages:              tt.fields.skippedImages,
 				rekorURL:                   tt.fields.rekorURL,
-				sigstorecache:              sigstorecache.NewCache(maximumAmountCache),
+				sigstorecache:              NewCache(maximumAmountCache),
 				logger:                     hclog.Default(),
 			}
 			got, err := sigstore.AttestContainerSignatures(&tt.status)
