@@ -30,12 +30,11 @@ const (
 
 type ReconcileMode struct {
 	CommonMode
-	MetricsAddr           string `hcl:"metrics_addr"`
-	LeaderElection        bool   `hcl:"leader_election"`
-	ControllerName        string `hcl:"controller_name"`
-	AddPodDNSNames        bool   `hcl:"add_pod_dns_names"`
-	ClusterDNSZone        string `hcl:"cluster_dns_zone"`
-	CheckSignatureEnabled bool   `hcl:"check_signature_enabled"`
+	MetricsAddr    string `hcl:"metrics_addr"`
+	LeaderElection bool   `hcl:"leader_election"`
+	ControllerName string `hcl:"controller_name"`
+	AddPodDNSNames bool   `hcl:"add_pod_dns_names"`
+	ClusterDNSZone string `hcl:"cluster_dns_zone"`
 }
 
 func (c *ReconcileMode) ParseConfig(hclConfig string) error {
