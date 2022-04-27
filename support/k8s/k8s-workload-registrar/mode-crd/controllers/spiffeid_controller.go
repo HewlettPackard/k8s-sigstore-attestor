@@ -68,17 +68,6 @@ func (r *SpiffeIDReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // Reconcile ensures the SPIRE Server entry matches the corresponding CRD
 func (r *SpiffeIDReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	spiffeID := spiffeidv1beta1.SpiffeID{}
-	// To verify CheckSignatureEnabled
-	if r.c.CheckSignatureEnabled {
-		SpiffeIDSignatureVerified := []string{"signature-verified:true"}
-		spiffeID = spiffeidv1beta1.SpiffeID{
-			Spec: spiffeidv1beta1.SpiffeIDSpec{
-				Selector: spiffeidv1beta1.Selector{
-					Arbitrary: SpiffeIDSignatureVerified,
-				},
-			},
-		}
-	}
 
 	if err := r.Get(ctx, req.NamespacedName, &spiffeID); err != nil {
 		if !k8serrors.IsNotFound(err) {
@@ -91,6 +80,19 @@ func (r *SpiffeIDReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+
+	// adding sigstore selector to the entry
+	if r.c.CheckSignatureEnabled {
+		spiffeID = spiffeidv1beta1.SpiffeID{
+			Spec: spiffeidv1beta1.SpiffeIDSpec{
+				Selector: spiffeidv1beta1.Selector{
+					SigstoreValidationPassed: "passed",
+				},
+			},
+		}
+	}
+
+	r.c.Log.Debug("Added spiffe validation passed selector to entry")
 
 	myFinalizerName := "finalizers.spiffeid.spiffe.io"
 	if spiffeID.ObjectMeta.DeletionTimestamp.IsZero() {

@@ -182,6 +182,7 @@ func (c *CRDMode) Run(ctx context.Context) error {
 			IdentityTemplate:      c.IdentityTemplate,
 			Context:               c.Context,
 			IdentityTemplateLabel: c.IdentityTemplateLabel,
+			CheckSignatureEnabled: c.CheckSignatureEnabled,
 		})
 		if err != nil {
 			return err

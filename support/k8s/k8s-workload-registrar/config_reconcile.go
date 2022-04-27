@@ -30,11 +30,12 @@ const (
 
 type ReconcileMode struct {
 	CommonMode
-	MetricsAddr    string `hcl:"metrics_addr"`
-	LeaderElection bool   `hcl:"leader_election"`
-	ControllerName string `hcl:"controller_name"`
-	AddPodDNSNames bool   `hcl:"add_pod_dns_names"`
-	ClusterDNSZone string `hcl:"cluster_dns_zone"`
+	MetricsAddr           string `hcl:"metrics_addr"`
+	LeaderElection        bool   `hcl:"leader_election"`
+	ControllerName        string `hcl:"controller_name"`
+	AddPodDNSNames        bool   `hcl:"add_pod_dns_names"`
+	ClusterDNSZone        string `hcl:"cluster_dns_zone"`
+	CheckSignatureEnabled bool   `hcl:"check_signature_enabled"`
 }
 
 func (c *ReconcileMode) ParseConfig(hclConfig string) error {
@@ -126,6 +127,7 @@ func (c *ReconcileMode) Run(ctx context.Context) error {
 		c.ClusterDNSZone,
 		c.AddPodDNSNames,
 		c.DisabledNamespaces,
+		c.CheckSignatureEnabled,
 	).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Unable to create controller", "controller", "Pod")
 		return err

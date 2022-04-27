@@ -99,6 +99,7 @@ func (s *PodControllerTestSuite) TestAddChangeRemovePod() {
 				"",
 				false,
 				[]string{},
+				false,
 			)
 
 			pod := corev1.Pod{
@@ -204,6 +205,7 @@ func (s *PodControllerTestSuite) TestAddDnsNames() {
 		"cluster.local",
 		true,
 		[]string{},
+		false,
 	)
 	pod := corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -316,6 +318,7 @@ func (s *PodControllerTestSuite) TestDottedPodNamesDns() {
 		"cluster.local",
 		true,
 		[]string{},
+		false,
 	)
 	pod := corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -406,6 +409,7 @@ func (s *PodControllerTestSuite) TestDottedServiceNamesDns() {
 		"cluster.local",
 		true,
 		[]string{},
+		false,
 	)
 	pod := corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -488,6 +492,7 @@ func (s *PodControllerTestSuite) TestSkipsDisabledNamespace() {
 		"cluster.local",
 		true,
 		[]string{"bar"},
+		false,
 	)
 	pod := corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
