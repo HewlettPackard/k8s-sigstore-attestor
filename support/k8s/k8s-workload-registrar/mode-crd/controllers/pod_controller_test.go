@@ -282,7 +282,7 @@ func (s *PodControllerTestSuite) TestIdentityTemplate() {
 			expectedSpiffeIDPath: fmt.Sprintf("%s/%s/%s/hostname/test-node", PodName, PodNamespace, PodServiceAccount),
 			spiffeIDCount:        1,
 		},
-		//testing sigstore signature selector option
+		// Testing sigstore signature selector option
 		{
 			// identity_template_label.
 			identityTemplate:      DefaultTemplate,
