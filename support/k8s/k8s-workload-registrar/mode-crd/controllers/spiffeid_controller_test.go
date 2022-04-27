@@ -76,7 +76,8 @@ func (s *SpiffeIDControllerTestSuite) TestCreateSpiffeID() {
 			SpiffeId: makeID(s.trustDomain, "%s", SpiffeIDName),
 			ParentId: makeID(s.trustDomain, "%s/%s", "spire", "server"),
 			Selector: spiffeidv1beta1.Selector{
-				Namespace: SpiffeIDNamespace,
+				Namespace:                SpiffeIDNamespace,
+				SigstoreValidationPassed: "passed",
 			},
 		},
 	}

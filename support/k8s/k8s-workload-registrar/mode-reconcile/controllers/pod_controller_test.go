@@ -99,7 +99,7 @@ func (s *PodControllerTestSuite) TestAddChangeRemovePod() {
 				"",
 				false,
 				[]string{},
-				false,
+				true,
 			)
 
 			pod := corev1.Pod{
