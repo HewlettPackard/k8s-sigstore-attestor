@@ -293,6 +293,7 @@ func (s *PodControllerTestSuite) TestIdentityTemplate() {
 			IdentityTemplate:      test.identityTemplate,
 			Context:               test.context,
 			IdentityTemplateLabel: test.identityTemplateLabel,
+			CheckSignatureEnabled: true,
 		})
 		if test.err != "" {
 			s.Require().Error(err)
