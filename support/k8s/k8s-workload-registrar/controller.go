@@ -281,7 +281,7 @@ func podNameSelector(podName string) *types.Selector {
 func setSignatureSelectorValue(selectorValue string) *types.Selector {
 	return &types.Selector{
 		Type:  "k8s",
-		Value: fmt.Sprintf("signature-verified:%s", selectorValue),
+		Value: "sigstore-validation:passed",
 	}
 }
 

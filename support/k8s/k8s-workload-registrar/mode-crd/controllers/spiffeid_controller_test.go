@@ -119,7 +119,7 @@ func (s *SpiffeIDControllerTestSuite) TestCreateSpiffeID() {
 	s.Require().Equal(createdSpiffeID.Spec.SpiffeId, stringFromID(entry.SpiffeId))
 	s.Require().Equal(createdSpiffeID.Spec.ParentId, stringFromID(entry.ParentId))
 	s.Require().Equal(createdSpiffeID.Spec.Selector.PodName, "test")
-	s.Require().Equal(createdSpiffeID.Spec.Selector.Arbitrary[0], "signature-verified:true")
+	s.Require().Equal(createdSpiffeID.Spec.Selector.SigstoreValidationPassed, "passed")
 }
 
 func (s *SpiffeIDControllerTestSuite) TestSpiffeIDEqual() {

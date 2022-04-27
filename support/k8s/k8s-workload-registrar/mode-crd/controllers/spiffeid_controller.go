@@ -81,19 +81,6 @@ func (r *SpiffeIDReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	// adding sigstore selector to the entry
-	if r.c.CheckSignatureEnabled {
-		spiffeID = spiffeidv1beta1.SpiffeID{
-			Spec: spiffeidv1beta1.SpiffeIDSpec{
-				Selector: spiffeidv1beta1.Selector{
-					SigstoreValidationPassed: "passed",
-				},
-			},
-		}
-	}
-
-	r.c.Log.Debug("Added spiffe validation passed selector to entry")
-
 	myFinalizerName := "finalizers.spiffeid.spiffe.io"
 	if spiffeID.ObjectMeta.DeletionTimestamp.IsZero() {
 		// Add our finalizer if it doesn't already exist
@@ -127,7 +114,12 @@ func (r *SpiffeIDReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 		return ctrl.Result{}, nil
 	}
+	// adding sigstore selector to the entry
+	if r.c.CheckSignatureEnabled {
+		spiffeID.Spec.Selector.SigstoreValidationPassed = "passed"
+	}
 
+	r.c.Log.Debug("Added spiffe validation passed selector to entry")
 	entryID, preexisting, err := r.updateOrCreateSpiffeID(ctx, &spiffeID)
 	if err != nil {
 		// If the entry doesn't exist on the Spire Server but it should have, fall through
