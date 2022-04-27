@@ -115,7 +115,6 @@ func (r *SpiffeIDReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
-	r.c.Log.Debug("Added spiffe validation passed selector to entry")
 	entryID, preexisting, err := r.updateOrCreateSpiffeID(ctx, &spiffeID)
 	if err != nil {
 		// If the entry doesn't exist on the Spire Server but it should have, fall through
