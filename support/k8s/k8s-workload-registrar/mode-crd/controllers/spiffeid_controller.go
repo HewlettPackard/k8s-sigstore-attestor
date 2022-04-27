@@ -114,10 +114,6 @@ func (r *SpiffeIDReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 		return ctrl.Result{}, nil
 	}
-	// adding sigstore selector to the entry
-	if r.c.CheckSignatureEnabled {
-		spiffeID.Spec.Selector.SigstoreValidationPassed = "passed"
-	}
 
 	r.c.Log.Debug("Added spiffe validation passed selector to entry")
 	entryID, preexisting, err := r.updateOrCreateSpiffeID(ctx, &spiffeID)
