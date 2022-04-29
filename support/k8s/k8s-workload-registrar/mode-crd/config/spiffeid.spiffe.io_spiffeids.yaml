@@ -79,6 +79,9 @@ spec:
                 serviceAccount:
                   description: ServiceAccount to match for this spiffe ID
                   type: string
+                sigstoreValidationPassed:
+                  description: Whether the container was signed or not.
+                  type: string
               type: object
             spiffeId:
               type: string

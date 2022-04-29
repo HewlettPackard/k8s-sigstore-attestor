@@ -48,6 +48,7 @@ type PodReconcilerConfig struct {
 	IdentityTemplate      string
 	IdentityTemplateLabel string
 	Context               map[string]string
+	CheckSignatureEnabled bool
 }
 
 const (
@@ -202,6 +203,11 @@ func (r *PodReconciler) updateorCreatePodEntry(ctx context.Context, pod *corev1.
 			},
 		},
 	}
+
+	if r.c.CheckSignatureEnabled {
+		spiffeID.Spec.Selector.SigstoreValidationPassed = "passed"
+	}
+
 	err = setOwnerRef(pod, spiffeID, r.c.Scheme)
 	if err != nil {
 		return ctrl.Result{}, err
