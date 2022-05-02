@@ -866,7 +866,7 @@ func (s *SigstoreMock) AttestContainerSignatures(status *corev1.ContainerStatus)
 			selectorsString = append(selectorsString, fmt.Sprintf("%s:image-signature-integrated-time:%s", status.ContainerID, selector.IntegratedTime))
 		}
 		if selector.Verified {
-			selectorsString = append(selectorsString, "signature-verified:true")
+			selectorsString = append(selectorsString, "sigstore-validation:passed")
 		}
 	}
 	return selectorsString, s.returnError
